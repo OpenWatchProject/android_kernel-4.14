@@ -114,7 +114,8 @@
 /*
  * choose your ic chip type of focaltech
  */
-#define FTS_CHIP_TYPE _FT3528
+//#define FTS_CHIP_TYPE _FT3528
+#define FTS_CHIP_TYPE _FT3267
 
 /******************* Enables *********************/
 /*********** 1 to enable, 0 to disable ***********/
