@@ -747,6 +747,38 @@ struct IMGSENSOR_HW_POWER_SEQ sensor_power_sequence[] = {
 		},
 	},
 #endif
+#if defined(GC5035_MIPI_RAW)
+	{
+		SENSOR_DRVNAME_GC5035_MIPI_RAW,
+		{
+			{SensorMCLK, Vol_High, 0},
+			{PDN, Vol_Low, 1},
+			{RST, Vol_Low, 10},
+			{DOVDD, Vol_1800, 10},
+			{DVDD, Vol_1200, 10},
+			{AVDD, Vol_2800, 50},
+			{PDN, Vol_High, 10},
+			{RST, Vol_High, 25}
+		},
+	},
+#endif
+#if defined(GC030A_MIPI_RAW)
+	{
+		SENSOR_DRVNAME_GC030A_MIPI_RAW,
+		{
+			{SensorMCLK, Vol_High, 0},
+			{PDN, Vol_High, 1},
+			{RST, Vol_Low, 50},
+			{DOVDD, Vol_1800, 10},
+			{DVDD, Vol_1800, 10},
+			{AVDD, Vol_2800, 50},
+			{PDN, Vol_Low, 5},
+			{RST, Vol_High, 10},
+			{PDN, Vol_High, 10},
+			{PDN, Vol_Low, 5}
+		},
+	},
+#endif
 	/* add new sensor before this line */
 	{NULL,},
 };
