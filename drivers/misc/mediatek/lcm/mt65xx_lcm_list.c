@@ -1280,6 +1280,10 @@ struct LCM_DRIVER *lcm_driver_list[] = {
 #if defined(NT51021H_WUXGA_VDO_ONCELL_BOE)
 	&nt51021h_wuxga_vdo_oncell_boe_lcm_drv,
 #endif
+
+#if defined(ST7797_400X400_DSI_VDO)
+	&st7797_400x400_dsi_vdo_lcm_drv,
+#endif
 };
 
 unsigned char lcm_name_list[][128] = {
