@@ -74,7 +74,7 @@
 
 static DEFINE_SPINLOCK(imgsensor_drv_lock);
 
-static imgsensor_info_struct imgsensor_info = {
+static struct imgsensor_info_struct imgsensor_info = {
     .sensor_id = GC030A_SENSOR_ID,        //record sensor id defined in Kd_imgsensor.h
 
     .checksum_value = 0xf7375923,        //checksum value for Camera Auto Test
@@ -174,7 +174,7 @@ static imgsensor_info_struct imgsensor_info = {
 };
 
 
-static imgsensor_struct imgsensor = {
+static struct imgsensor_struct imgsensor = {
     .mirror = IMAGE_NORMAL,                //mirrorflip information
     .sensor_mode = IMGSENSOR_MODE_INIT, //IMGSENSOR_MODE enum value,record current sensor mode,such as: INIT, Preview, Capture, Video,High Speed Video, Slim Video
     .shutter = 0x3ED,                    //current shutter
@@ -191,7 +191,7 @@ static imgsensor_struct imgsensor = {
 
 
 /* Sensor output window information */
-static SENSOR_WINSIZE_INFO_STRUCT imgsensor_winsize_info[5] =
+static struct SENSOR_WINSIZE_INFO_STRUCT imgsensor_winsize_info[5] =
 {
 	{ 640, 480,	 0,    0, 640, 480, 640,  480, 0000, 0000, 640,  480, 	 0,    0, 640,  480}, // Preview 
 	{ 640, 480,	 0,    0, 640, 480, 640,  480, 0000, 0000, 640,  480, 	 0,    0, 640,  480}, // capture 
@@ -1203,7 +1203,7 @@ static kal_uint32 feature_control(MSDK_SENSOR_FEATURE_ENUM feature_id,
     unsigned long long *feature_data=(unsigned long long *) feature_para;
     //unsigned long long *feature_return_para=(unsigned long long *) feature_para;
 
-    SENSOR_WINSIZE_INFO_STRUCT *wininfo;
+    struct SENSOR_WINSIZE_INFO_STRUCT *wininfo;
     MSDK_SENSOR_REG_INFO_STRUCT *sensor_reg_data=(MSDK_SENSOR_REG_INFO_STRUCT *) feature_para;
 
     LOG_INF("feature_id = %d\n", feature_id);
@@ -1279,24 +1279,24 @@ static kal_uint32 feature_control(MSDK_SENSOR_FEATURE_ENUM feature_id,
         case SENSOR_FEATURE_GET_CROP_INFO:
             LOG_INF("SENSOR_FEATURE_GET_CROP_INFO scenarioId:%d\n", (UINT32)*feature_data);
 
-            wininfo = (SENSOR_WINSIZE_INFO_STRUCT *)(uintptr_t)(*(feature_data+1));
+            wininfo = (struct SENSOR_WINSIZE_INFO_STRUCT *)(uintptr_t)(*(feature_data+1));
 
             switch (*feature_data_32) {
                 case MSDK_SCENARIO_ID_CAMERA_CAPTURE_JPEG:
-                    memcpy((void *)wininfo,(void *)&imgsensor_winsize_info[1],sizeof(SENSOR_WINSIZE_INFO_STRUCT));
+                    memcpy((void *)wininfo,(void *)&imgsensor_winsize_info[1],sizeof(struct SENSOR_WINSIZE_INFO_STRUCT));
                     break;
                 case MSDK_SCENARIO_ID_VIDEO_PREVIEW:
-                    memcpy((void *)wininfo,(void *)&imgsensor_winsize_info[2],sizeof(SENSOR_WINSIZE_INFO_STRUCT));
+                    memcpy((void *)wininfo,(void *)&imgsensor_winsize_info[2],sizeof(struct SENSOR_WINSIZE_INFO_STRUCT));
                     break;
                 case MSDK_SCENARIO_ID_HIGH_SPEED_VIDEO:
-                    memcpy((void *)wininfo,(void *)&imgsensor_winsize_info[3],sizeof(SENSOR_WINSIZE_INFO_STRUCT));
+                    memcpy((void *)wininfo,(void *)&imgsensor_winsize_info[3],sizeof(struct SENSOR_WINSIZE_INFO_STRUCT));
                     break;
                 case MSDK_SCENARIO_ID_SLIM_VIDEO:
-                    memcpy((void *)wininfo,(void *)&imgsensor_winsize_info[4],sizeof(SENSOR_WINSIZE_INFO_STRUCT));
+                    memcpy((void *)wininfo,(void *)&imgsensor_winsize_info[4],sizeof(struct SENSOR_WINSIZE_INFO_STRUCT));
                     break;
                 case MSDK_SCENARIO_ID_CAMERA_PREVIEW:
                 default:
-                    memcpy((void *)wininfo,(void *)&imgsensor_winsize_info[0],sizeof(SENSOR_WINSIZE_INFO_STRUCT));
+                    memcpy((void *)wininfo,(void *)&imgsensor_winsize_info[0],sizeof(struct SENSOR_WINSIZE_INFO_STRUCT));
                     break;
             }
             break;
@@ -1311,7 +1311,7 @@ static kal_uint32 feature_control(MSDK_SENSOR_FEATURE_ENUM feature_id,
     return ERROR_NONE;
 }    /*    feature_control()  */
 
-static SENSOR_FUNCTION_STRUCT sensor_func = {
+static struct SENSOR_FUNCTION_STRUCT sensor_func = {
     open,
     get_info,
     get_resolution,
@@ -1320,7 +1320,7 @@ static SENSOR_FUNCTION_STRUCT sensor_func = {
     close
 };
 
-UINT32 GC030A_MIPI_RAW_SensorInit(PSENSOR_FUNCTION_STRUCT *pfFunc)
+UINT32 GC030A_MIPI_RAW_SensorInit(struct SENSOR_FUNCTION_STRUCT **pfFunc)
 {
     /* To Do : Check Sensor status here */
     if (pfFunc!=NULL)
