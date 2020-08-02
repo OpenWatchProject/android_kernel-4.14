@@ -1766,6 +1766,11 @@ static int mtk_charger_parse_dt(struct charger_manager *info,
 		info->algorithm_name = "SwitchCharging";
 	}
 
+	if (strcmp(info->algorithm_name, "LinearCharging") == 0) {
+		chr_err("found LinearCharging\n");
+		mtk_linear_charging_init(info);
+	}
+
 	if (strcmp(info->algorithm_name, "SwitchCharging") == 0) {
 		chr_err("found SwitchCharging\n");
 		mtk_switch_charging_init(info);

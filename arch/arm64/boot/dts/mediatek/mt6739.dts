@@ -2408,6 +2408,18 @@ firmware_class.path=/vendor/firmware loop.max_part=7";
 	dynamic_options: dynamic_options {
 		compatible = "mediatek,dynamic_options";
 	};
+
+#ifdef CONFIG_MTK_PMIC_CHIP_MT6357
+	mt6357_charger {
+		compatible = "mediatek,mt6357_charger";
+		charger_name = "primary_chg";
+		alias_name = "mt6357";
+		ichg = <500000>; /* uA */
+		cv = <4350000>; /* uV */
+		vcdt_hv_thres = <7000000>;
+		vbat_ov_thres = <4450000>; /* uV */
+	};
+#endif
 };
 
 #include "cust_mt6739_msdc.dtsi"
