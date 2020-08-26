@@ -3,7 +3,7 @@
  * This software program is licensed subject to the GNU General
  * Public License (GPL).Version 2,June 1991,
  * available at http://www.fsf.org/copyleft/gpl.html
- * VERSION: V2.5
+ * VERSION: v0.0.2.6
  * Date: 2017/05/08
  */
 #ifndef _BMA4XY_DRIVER_H
@@ -17,16 +17,11 @@
 #include <linux/init.h>
 #include <linux/i2c.h>
 #include <linux/interrupt.h>
-//#include <linux/wakelock.h>
+#include <linux/wakelock.h>
 #include <linux/input.h>
 #include <linux/workqueue.h>
 #include <linux/slab.h>
 #include <linux/firmware.h>
-#include <hwmsensor.h>
-//#include <hwmsen_dev.h>
-#include <sensors_io.h>
-#include <hwmsen_helper.h>
-//#include <batch.h>
 #include "bma4_defs.h"
 #include "bma4.h"
 #if defined(BMA420)
@@ -49,6 +44,15 @@
 #endif
 #if defined(BMA455)
 #include "bma455.h"
+#endif
+#if defined(BMA422N)
+#include "bma422n.h"
+#endif
+#if defined(BMA455N)
+#include "bma455n.h"
+#endif
+#if defined(BMA423)
+#include "bma423.h"
 #endif
 #include <cust_acc.h>
 #include <accel.h>
@@ -82,7 +86,7 @@
 #define M_BYTES_FRM      8
 #define MA_BYTES_FRM     14
 #define I2C_DRIVERID_BMA4XY 422
-//#define DEBUG 1
+#define DEBUG 1
 #define SW_CALIBRATION
 #define BMA4XY_ACC_AXIS_X          0
 #define BMA4XY_ACC_AXIS_Y          1
@@ -99,7 +103,7 @@ enum ADX_TRC {
 };
 struct scale_factor {
 	u8 whole;
-	u8 fraction;
+	u16 fraction;
 };
 struct data_resolution {
 	struct scale_factor scalefactor;
@@ -122,7 +126,6 @@ struct bma4xy_client_data {
 	atomic_t suspend;
 	atomic_t filter;
 	struct hwmsen_convert cvt;
-	s16 cali_raw[BMA4XY_ACC_AXIS_NUM + 1];
 	s16 cali_sw[BMA4XY_ACC_AXIS_NUM + 1];
 	/*data */
 	s8 offset[BMA4XY_ACC_AXIS_NUM + 1];	/*+1: for 4-byte alignment */
@@ -144,13 +147,12 @@ struct bma4xy_client_data {
 	unsigned long config_stream_size;
 	int reg_sel;
 	int reg_len;
-	//struct wake_lock wakelock;
+	struct wake_lock wakelock;
 	struct delayed_work delay_work_sig;
-/*[Prize] delay to write bma4xy config to ram  hjian 20171011 */
-#if defined(CONFIG_PROJECT_KOOBEE_K5706Q) || defined(CONFIG_PROJECT_KOOBEE_K5703Q)
-	struct delayed_work delay_work_wrconfig;
+#if defined(BMA422N) || defined(BMA455N)
+	struct delayed_work delay_work_any_motion;
+	struct delayed_work delay_work_no_motion;
 #endif
-/*[Prize] delay to write bma4xy config to ram  hjian 20171011 */
 	atomic_t in_suspend;
 	uint8_t tap_type;
 	uint8_t selftest;
@@ -168,8 +170,17 @@ struct bma4xy_client_data {
 	uint8_t tap_enable;
 	uint8_t highg_enable;
 	uint8_t lowg_enable;
+	uint8_t activity_enable;
 	uint8_t err_int_trigger_num;
 	uint32_t step_counter_val;
 	uint32_t step_counter_temp;
+	uint8_t any_motion_axis;
+	uint8_t no_motion_axis;
+	uint8_t foc;
+	uint8_t change_step_par;
+	uint8_t	wrist_wear;
+	uint8_t single_tap;
+	uint8_t double_tap;
+
 };
 #endif

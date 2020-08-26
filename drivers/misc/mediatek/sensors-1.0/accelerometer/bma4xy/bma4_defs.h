@@ -5,9 +5,9 @@
 *
 * File : bma4_defs.h
 *
-* Date: 18 Apr 2017
+* Date: 16 April 2018
 *
-* Revision : 2.1.1 $
+* Revision: 2.1.11 $
 *
 * Usage: Sensor Driver for BMA4 family of sensors
 *
@@ -118,9 +118,9 @@
 #define INT64_C(x)      x
 #define UINT64_C(x)     x
 #endif
-#define BMA421 1
+#define BMA423 1
 /**\name CHIP ID ADDRESS*/
-#define	BMA4_CHIP_ID_ADDR	UINT8_C(0x00)
+#define	BMA4_CHIP_ID_ADDR		 UINT8_C(0x00)
 
 /**\name ERROR STATUS*/
 #define	BMA4_ERROR_ADDR		UINT8_C(0X02)
@@ -137,6 +137,9 @@
 
 /**\name INTERRUPT/FEATURE STATUS REGISTERS*/
 #define	BMA4_INT_STAT_0_ADDR	UINT8_C(0X1C)
+
+/**\name INTERRUPT/FEATURE STATUS REGISTERS*/
+#define	BMA4_INT_STAT_1_ADDR	UINT8_C(0X1D)
 
 /**\name TEMPERATURE REGISTERS*/
 #define	BMA4_TEMPERATURE_ADDR	UINT8_C(0X22)
@@ -215,7 +218,8 @@
 #define	BMA4_STEP_CNT_OUT_0_ADDR	UINT8_C(0x1E)
 #define	BMA4_HIGH_G_OUT_ADDR		UINT8_C(0x1F)
 #define	BMA4_ACTIVITY_OUT_ADDR		UINT8_C(0x27)
-#define	BMA4_INTERNAL_STAT		UINT8_C(0x2A)
+#define	BMA4_ORIENTATION_OUT_ADDR	UINT8_C(0x28)
+#define	BMA4_INTERNAL_STAT			UINT8_C(0x2A)
 
 /*!
  * @brief Block size for config write */
@@ -319,17 +323,19 @@
 #define	BMA4_FIFO_LENGTH_MSB_BYTE	UINT8_C(1)
 
 /**\name	ERROR CODES	*/
-#define BMA4_OK						UINT16_C(0)
-#define BMA4_E_NULL_PTR				UINT16_C(1)
-#define BMA4_E_OUT_OF_RANGE			UINT16_C(1 << 1)
+#define BMA4_OK				UINT16_C(0)
+#define BMA4_E_NULL_PTR			UINT16_C(1)
+#define BMA4_E_OUT_OF_RANGE		UINT16_C(1 << 1)
 #define BMA4_E_INVALID_SENSOR		UINT16_C(1 << 2)
 #define BMA4_E_CONFIG_STREAM_ERROR	UINT16_C(1 << 3)
 #define BMA4_E_SELF_TEST_FAIL		UINT16_C(1 << 4)
-#define BMA4_E_FOC_FAIL				UINT16_C(1 << 5)
-#define BMA4_E_FAIL					UINT16_C(1 << 6)
+#define BMA4_E_FOC_FAIL			UINT16_C(1 << 5)
+#define BMA4_E_FAIL			UINT16_C(1 << 6)
 #define BMA4_E_INT_LINE_INVALID		UINT16_C(1 << 7)
-#define BMA4_E_RD_WR_LENGTH_INVALID UINT16_C(1 << 8)
-#define BMA4_E_AUX_CONFIG_FAIL		 UINT16_C(1 << 9)
+#define BMA4_E_RD_WR_LENGTH_INVALID	UINT16_C(1 << 8)
+#define BMA4_E_AUX_CONFIG_FAIL		UINT16_C(1 << 9)
+#define BMA4_E_SC_FIFO_HEADER_ERR	UINT16_C(1 << 10)
+#define BMA4_E_SC_FIFO_CONFIG_ERR	UINT16_C(1 << 11)
 
 /**\name	UTILITY MACROS	*/
 #define	BMA4_SET_LOW_BYTE			UINT16_C(0x00FF)
@@ -338,6 +344,17 @@
 
 /**\name	FOC RELATED MACROS	*/
 #define	BMA4_ACCEL_CONFIG_FOC		UINT8_C(0xB7)
+
+/* Macros used for Self test */
+/* Self-test: Resulting minimum difference signal in mg for BMA42x */
+#define	BMA42X_ST_ACC_X_AXIS_SIGNAL_DIFF	UINT16_C(400)
+#define	BMA42X_ST_ACC_Y_AXIS_SIGNAL_DIFF	UINT16_C(800)
+#define	BMA42X_ST_ACC_Z_AXIS_SIGNAL_DIFF	UINT16_C(400)
+
+/* Self-test: Resulting minimum difference signal in mg for BMA45x */
+#define	BMA45X_ST_ACC_X_AXIS_SIGNAL_DIFF	UINT16_C(1800)
+#define	BMA45X_ST_ACC_Y_AXIS_SIGNAL_DIFF	UINT16_C(1800)
+#define	BMA45X_ST_ACC_Z_AXIS_SIGNAL_DIFF	UINT16_C(1800)
 
 /**\name BOOLEAN TYPES*/
 #ifndef TRUE
@@ -353,7 +370,6 @@
 #endif
 
 /**\name	ERROR STATUS POSITION AND MASK*/
-#define	BMA4_FATAL_ERR_POS		UINT8_C(0)
 #define	BMA4_FATAL_ERR_MSK		UINT8_C(0x01)
 #define	BMA4_CMD_ERR_POS		UINT8_C(1)
 #define	BMA4_CMD_ERR_MSK		UINT8_C(0x02)
@@ -363,6 +379,9 @@
 #define	BMA4_FIFO_ERR_MSK		UINT8_C(0x40)
 #define	BMA4_AUX_ERR_POS		UINT8_C(7)
 #define	BMA4_AUX_ERR_MSK		UINT8_C(0x80)
+
+/**\name	Maximum number of bytes to be read from the sensor */
+#define	BMA4_MAX_BUFFER_SIZE            UINT8_C(81)
 
 /**\name	NV_CONFIG POSITION AND MASK*/
 /* NV_CONF Description - Reg Addr --> (0x70), Bit --> 3 */
@@ -388,7 +407,6 @@
 #define	BMA4_STAT_DATA_RDY_MAG_MSK	UINT8_C(0x20)
 
 /**\name ADVANCE POWER SAVE POSITION AND MASK*/
-#define	BMA4_ADVANCE_POWER_SAVE_POS	UINT8_C(0)
 #define	BMA4_ADVANCE_POWER_SAVE_MSK	UINT8_C(0x01)
 
 /**\name ACCELEROMETER ENABLE POSITION AND MASK*/
@@ -396,15 +414,12 @@
 #define	BMA4_ACCEL_ENABLE_MSK		UINT8_C(0x04)
 
 /**\name MAGNETOMETER ENABLE POSITION AND MASK*/
-#define	BMA4_MAG_ENABLE_POS		UINT8_C(0)
 #define	BMA4_MAG_ENABLE_MSK		UINT8_C(0x01)
 
 /**\name	ACCEL CONFIGURATION POSITION AND MASK*/
-#define	BMA4_ACCEL_ODR_POS				UINT8_C(0)
-#define	BMA4_ACCEL_ODR_MSK				UINT8_C(0x0F)
-#define	BMA4_ACCEL_BW_POS				UINT8_C(4)
-#define	BMA4_ACCEL_BW_MSK				UINT8_C(0x70)
-#define	BMA4_ACCEL_RANGE_POS			UINT8_C(0)
+#define	BMA4_ACCEL_ODR_MSK			UINT8_C(0x0F)
+#define	BMA4_ACCEL_BW_POS			UINT8_C(4)
+#define	BMA4_ACCEL_BW_MSK			UINT8_C(0x70)
 #define	BMA4_ACCEL_RANGE_MSK			UINT8_C(0x03)
 #define	BMA4_ACCEL_PERFMODE_POS			UINT8_C(7)
 #define	BMA4_ACCEL_PERFMODE_MSK			UINT8_C(0x80)
@@ -420,7 +435,6 @@
 #define	BMA4_FIFO_SELF_WAKE_UP_MSK	UINT8_C(0x02)
 
 /**\name	FIFO BYTE COUNTER POSITION AND MASK*/
-#define	BMA4_FIFO_BYTE_COUNTER_MSB_POS	UINT8_C(0)
 #define	BMA4_FIFO_BYTE_COUNTER_MSB_MSK	UINT8_C(0x3F)
 
 /**\name	FIFO DATA POSITION AND MASK*/
@@ -486,16 +500,12 @@
 #define	BMA4_I2C_DEVICE_ADDR_MSK		UINT8_C(0xFE)
 
 /**\name MAG CONFIGURATION FOR SECONDARY INTERFACE POSITION AND MASK*/
-#define	BMA4_MAG_BURST_POS				UINT8_C(0)
-#define	BMA4_MAG_BURST_MSK				UINT8_C(0x03)
+#define	BMA4_MAG_BURST_MSK			UINT8_C(0x03)
 #define	BMA4_MAG_MANUAL_ENABLE_POS		UINT8_C(7)
 #define	BMA4_MAG_MANUAL_ENABLE_MSK		UINT8_C(0x80)
-#define	BMA4_READ_ADDR_POS				UINT8_C(0)
-#define	BMA4_READ_ADDR_MSK				UINT8_C(0xFF)
-#define	BMA4_WRITE_ADDR_POS				UINT8_C(0)
-#define	BMA4_WRITE_ADDR_MSK				UINT8_C(0xFF)
-#define	BMA4_WRITE_DATA_POS				UINT8_C(0)
-#define	BMA4_WRITE_DATA_MSK				UINT8_C(0xFF)
+#define	BMA4_READ_ADDR_MSK			UINT8_C(0xFF)
+#define	BMA4_WRITE_ADDR_MSK			UINT8_C(0xFF)
+#define	BMA4_WRITE_DATA_MSK			UINT8_C(0xFF)
 
 /**\name	OUTPUT TYPE ENABLE POSITION AND MASK*/
 #define	BMA4_INT_EDGE_CTRL_MASK			UINT8_C(0x01)
@@ -510,13 +520,11 @@
 #define	BMA4_INT_INPUT_EN_POS			UINT8_C(0x04)
 
 /**\name	IF CONFIG POSITION AND MASK*/
-#define	BMA4_CONFIG_SPI3_POS			UINT8_C(0)
 #define	BMA4_CONFIG_SPI3_MSK			UINT8_C(0x01)
 #define	BMA4_IF_CONFIG_IF_MODE_POS		UINT8_C(4)
 #define	BMA4_IF_CONFIG_IF_MODE_MSK		UINT8_C(0x10)
 
 /**\name	ACCEL SELF TEST POSITION AND MASK*/
-#define	BMA4_ACCEL_SELFTEST_ENABLE_POS	UINT8_C(0)
 #define	BMA4_ACCEL_SELFTEST_ENABLE_MSK	UINT8_C(0x01)
 #define	BMA4_ACCEL_SELFTEST_SIGN_POS	UINT8_C(2)
 #define	BMA4_ACCEL_SELFTEST_SIGN_MSK	UINT8_C(0x04)
@@ -615,7 +623,7 @@
 
 /**\name    MULTIPLIER */
 /*! for handling micro-g values */
-#define BMA4XY_MULTIPLIER           UINT32_C(1000000)
+#define BMA4XY_MULTIPLIER         UINT32_C(1000000)
 /*! for handling float temperature values */
 #define BMA4_SCALE_TEMP           INT32_C(1000)
 /* BMA4_FAHREN_SCALED = 1.8 * 1000 */
@@ -633,124 +641,6 @@
 #ifndef ABS
 #define	ABS(a)		((a) > 0 ? (a) : -(a)) /*!< Absolute value */
 #endif
-/****************************************************/
-/**\name	I2C address of AKM09916 */
-/***************************************************/
-#define	BMA4_AUX_AKM09916_I2C_ADDR		(0x0C)
-
-/****************************************************/
-/**\name	AKM09916 DEFINITIONS */
-/***************************************************/
-#define	AKM_POWER_DOWN_MODE_DATA			(0x00)
-#define	AKM_POWER_MODE_REG					(0x31)
-#define	AKM_SINGLE_MEASUREMENT_MODE			(0x01)
-#define	AKM_DATA_REGISTER					(0x11)
-#define	AKM_CHIP_ID_REG						(0x01)
-#define	AKM_CONTINUOUS_MEASUREMENT_MODE1	(0x02)
-/**< I2C address of BMM150*/
-#define	BMA4_AUX_BMM150_I2C_ADDRESS		(0x10)
-
-/****************************************************/
-/**\name	BMM150 DEFINITION */
-/***************************************************/
-#define	BMA4_BMM150_SET_POWER_CONTROL	(0x01)
-#define	BMA4_BMM150_MAX_RETRY_WAKEUP	(5)
-#define	BMA4_BMM150_POWER_ON			(0x01)
-#define	BMA4_BMM150_POWER_OFF			(0x00)
-#define	BMA4_BMM150_FORCE_MODE			(0x02)
-#define	BMA4_BMM150_POWER_ON_SUCCESS	(0)
-#define	BMA4_BMM150_POWER_ON_FAIL		(-1)
-#define	BMA4_BMM150_DIG_X1				(0)
-#define	BMA4_BMM150_DIG_Y1				(1)
-#define	BMA4_BMM150_DIG_X2				(2)
-#define	BMA4_BMM150_DIG_Y3				(3)
-#define	BMA4_BMM150_DIG_XY1				(4)
-#define	BMA4_BMM150_DIG_XY2				(5)
-#define	BMA4_BMM150_DIG_Z1_LSB			(6)
-#define	BMA4_BMM150_DIG_Z1_MSB			(7)
-#define	BMA4_BMM150_DIG_Z2_LSB			(8)
-#define	BMA4_BMM150_DIG_Z2_MSB			(9)
-#define	BMA4_BMM150_DIG_Z3_LSB			(10)
-#define	BMA4_BMM150_DIG_Z3_MSB			(11)
-#define	BMA4_BMM150_DIG_Z4_LSB			(12)
-#define	BMA4_BMM150_DIG_Z4_MSB			(13)
-#define	BMA4_BMM150_DIG_XYZ1_LSB		(14)
-#define	BMA4_BMM150_DIG_XYZ1_MSB		(15)
-
-/**************************************************/
-/**\name	USED FOR MAG OVERFLOW CHECK FOR BMM150  */
-/*************************************************/
-#define	BMA4_MAG_OVERFLOW_OUTPUT		(-32768)
-#define	BMA4_MAG_OVERFLOW_OUTPUT_S32	(-2147483647-1)
-#define	BMA4_MAG_NEGATIVE_SATURATION_Z	(-32767)
-#define	BMA4_MAG_POSITIVE_SATURATION_Z	(32767)
-#define	BMA4_MAG_FLIP_OVERFLOW_ADCVAL	(-4096)
-#define	BMA4_MAG_HALL_OVERFLOW_ADCVAL	(-16384)
-
-/**************************************************/
-/**\name	BMM150 TRIM DATA DEFINITIONS      */
-/*************************************************/
-#define	BMA4_MAG_DIG_X1			(0x5D)
-#define	BMA4_MAG_DIG_Y1			(0x5E)
-#define	BMA4_MAG_DIG_Z4_LSB		(0x62)
-#define	BMA4_MAG_DIG_Z4_MSB		(0x63)
-#define	BMA4_MAG_DIG_X2			(0x64)
-#define	BMA4_MAG_DIG_Y2			(0x65)
-#define	BMA4_MAG_DIG_Z2_LSB		(0x68)
-#define	BMA4_MAG_DIG_Z2_MSB		(0x69)
-#define	BMA4_MAG_DIG_Z1_LSB		(0x6A)
-#define	BMA4_MAG_DIG_Z1_MSB		(0x6B)
-#define	BMA4_MAG_DIG_XYZ1_LSB	(0x6C)
-#define	BMA4_MAG_DIG_XYZ1_MSB	(0x6D)
-#define	BMA4_MAG_DIG_Z3_LSB		(0x6E)
-#define	BMA4_MAG_DIG_Z3_MSB		(0x6F)
-#define	BMA4_MAG_DIG_XY2		(0x70)
-#define	BMA4_MAG_DIG_XY1		(0x71)
-
-/**************************************************/
-/**\name	BMM150 REGISTER DEFINITION */
-/*************************************************/
-#define	BMA4_BMM150_CHIP_ID				(0x40)
-#define	BMA4_BMM150_POWER_CONTROL_REG	(0x4B)
-#define	BMA4_BMM150_POWER_MODE_REG		(0x4C)
-#define	BMA4_BMM150_DATA_REG			(0x42)
-#define	BMA4_BMM150_XY_REP				(0x51)
-#define	BMA4_BMM150_Z_REP				(0x52)
-
-/**************************************************/
-/**\name	BMM150 PRE-SET MODE DEFINITIONS     */
-/*************************************************/
-#define	BMA4_MAG_PRESETMODE_LOWPOWER		(1)
-#define	BMA4_MAG_PRESETMODE_REGULAR			(2)
-#define	BMA4_MAG_PRESETMODE_HIGHACCURACY	(3)
-#define	BMA4_MAG_PRESETMODE_ENHANCED		(4)
-
-/**************************************************/
-/**\name	BMM150 PRESET MODES - DATA RATES    */
-/*************************************************/
-#define	BMA4_MAG_LOWPOWER_DR		(0x02)
-#define	BMA4_MAG_REGULAR_DR			(0x02)
-#define	BMA4_MAG_HIGHACCURACY_DR	(0x2A)
-#define	BMA4_MAG_ENHANCED_DR		(0x02)
-
-/**************************************************/
-/**\name	BMM150 PRESET MODES - REPETITIONS-XY RATES */
-/*************************************************/
-#define	BMA4_MAG_LOWPOWER_REPXY			(1)
-#define	BMA4_MAG_REGULAR_REPXY			(4)
-#define	BMA4_MAG_HIGHACCURACY_REPXY		(23)
-#define	BMA4_MAG_ENHANCED_REPXY			(7)
-
-/**************************************************/
-/**\name	BMM150 PRESET MODES - REPETITIONS-Z RATES */
-/*************************************************/
-#define	BMA4_MAG_LOWPOWER_REPZ			(2)
-#define	BMA4_MAG_REGULAR_REPZ			(14)
-#define	BMA4_MAG_HIGHACCURACY_REPZ		(82)
-#define	BMA4_MAG_ENHANCED_REPZ			(26)
-#define	BMA4_MAG_NORMAL_SWITCH_TIMES	(5)
-#define	MAG_INTERFACE_PMU_ENABLE		(1)
-#define	MAG_INTERFACE_PMU_DISABLE		(0)
 
 /**\name	BIT SLICE GET AND SET FUNCTIONS */
 #define	BMA4_GET_BITSLICE(regvar, bitname)\
@@ -763,16 +653,33 @@
 #define BMA4_GET_LSB(var)	(uint8_t)(var & BMA4_SET_LOW_BYTE)
 #define BMA4_GET_MSB(var)	(uint8_t)((var & BMA4_SET_HIGH_BYTE) >> 8)
 
+#define BMA4_SET_BIT_VAL_0(reg_data, bitname) (reg_data & ~(bitname##_MSK))
+
+#define BMA4_SET_BITS_POS_0(reg_data, bitname, data) \
+				((reg_data & ~(bitname##_MSK)) | \
+				(data & bitname##_MSK))
+
+#define BMA4_GET_BITS_POS_0(reg_data, bitname)  (reg_data & (bitname##_MSK))
+
 /**\name	TYPEDEF DEFINITIONS */
 /*!
  * @brief Bus communication function pointer which should be mapped to
  * the platform specific read and write functions of the user
  */
-typedef s8 (*bma4_com_fptr_t)(
-uint8_t dev_addr, uint8_t reg_addr, uint8_t *read_data, uint16_t len);
+typedef uint16_t (*bma4_com_fptr_t)(uint8_t dev_addr, uint8_t reg_addr, uint8_t *read_data, uint16_t len);
 
 /*!	delay function pointer */
 typedef void (*bma4_delay_fptr_t)(uint32_t);
+
+/******************************************************************************/
+/*!  @name		   Enum Declarations                                  */
+/******************************************************************************/
+
+/*!  @name Enum to define BMA4 variants */
+enum  bma4_variant {
+	BMA42X_VARIANT = 1,
+	BMA45X_VARIANT
+};
 
 /**\name	STRUCTURE DEFINITIONS*/
 
@@ -820,6 +727,8 @@ struct bma4_dev {
 	uint8_t dummy_byte;
 	/*! Resolution for FOC */
 	uint8_t resolution;
+	/*! Define the BMA4 variant BMA42X or BMA45X */
+	enum bma4_variant variant;
 /*	! Used to check mag manual/auto mode status
 	int8_t mag_manual_enable;*/
 	/*! FIFO related configurations */
@@ -855,12 +764,14 @@ struct bma4_fifo_frame {
 	/*! Enabling of the FIFO header to stream in header mode */
 	uint8_t fifo_header_enable;
 	/*! Streaming of the Accelerometer, Auxiliary
-	sensor data or both in FIFO */
+	 *  sensor data or both in FIFO */
 	uint8_t fifo_data_enable;
 	/*! Will be equal to length when no more frames are there to parse */
 	uint16_t accel_byte_start_idx;
 	/*! Will be equal to length when no more frames are there to parse */
 	uint16_t mag_byte_start_idx;
+	/*! Will be equal to length when no more frames are there to parse */
+	uint16_t sc_frame_byte_start_idx;
 	/*! Value of FIFO sensor time time */
 	uint32_t sensor_time;
 	/*! Value of Skipped frame counts */
@@ -964,11 +875,11 @@ struct bma4_asic_config {
  */
 struct bma4_mag {
 	/*! BMM150 and AKM09916 X raw data */
-	int16_t x;
+	int32_t x;
 	/*! BMM150 and AKM09916 Y raw data */
-	int16_t y;
+	int32_t y;
 	/*! BMM150 and AKM09916 Z raw data */
-	int16_t z;
+	int32_t z;
 };
 
 /*!
@@ -989,11 +900,11 @@ struct bma4_mag_xyzr {
  * @brief Accel xyz data structure
  */
 struct bma4_accel {
-	/*! Accel X  data */
+	/*! Accel X data */
 	int16_t x;
-	/*! Accel Y  data */
+	/*! Accel Y data */
 	int16_t y;
-	/*! Accel Z  data */
+	/*! Accel Z data */
 	int16_t z;
 };
 
@@ -1018,22 +929,11 @@ struct bma4_mag_fifo_data {
 	/*! The value of mag r for BMM150 Y2 for YAMAHA MSB data */
 	uint8_t mag_r_y2_msb;
 };
-/*!
- * @brief bmm150 mag trim data structure
- */
-struct trim_data_t {
-	int8_t dig_x1;/**<BMM150 trim x1 data*/
-	int8_t dig_y1;/**<BMM150 trim y1 data*/
-	int8_t dig_x2;/**<BMM150 trim x2 data*/
-	int8_t dig_y2;/**<BMM150 trim y2 data*/
-	uint16_t dig_z1;/**<BMM150 trim z1 data*/
-	int16_t dig_z2;/**<BMM150 trim z2 data*/
-	int16_t dig_z3;/**<BMM150 trim z3 data*/
-	int16_t dig_z4;/**<BMM150 trim z4 data*/
-	uint8_t dig_xy1;/**<BMM150 trim xy1 data*/
-	int8_t dig_xy2;/**<BMM150 trim xy2 data*/
-	uint16_t dig_xyz1;/**<BMM150 trim xyz1 data*/
-};
+
+#define BMA4XY_TAG                  "[BOSCH_BMA4XY] "
+#define BMA4XY_FUN(f)               pr_debug(BMA4XY_TAG"%s\n", __func__)
+#define BMA4XY_ERR(fmt, args...)    pr_err(BMA4XY_TAG"%s %d : "fmt"\n", __func__, __LINE__, ##args)
+#define BMA4XY_LOG(fmt, args...)    pr_debug(BMA4XY_TAG fmt"\n", ##args)
 
 
 #endif

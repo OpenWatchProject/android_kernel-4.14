@@ -5,9 +5,9 @@
 *
 * File : bma4.h
 *
-* Date:  24 Mar 2017
+* Date: 16 April 2018
 *
-* Revision : 2.1.0 $
+* Revision: 2.1.11 $
 *
 * Usage: Sensor Driver for BMA4 family of sensors
 *
@@ -157,7 +157,7 @@ uint16_t bma4_write_config_file(struct bma4_dev *dev);
  *	@retval 0 -> Success
  *	@retval Any non zero value -> Fail
  */
-uint16_t bma4_write_regs(uint8_t addr, uint8_t *data, uint16_t len, struct bma4_dev *dev);
+uint16_t bma4_write_regs(uint8_t addr, uint8_t *data, uint8_t len, struct bma4_dev *dev);
 
 /*!
  *	@brief This API checks whether the read operation requested is for
@@ -166,13 +166,17 @@ uint16_t bma4_write_regs(uint8_t addr, uint8_t *data, uint16_t len, struct bma4_
  *	@param[in] addr	: Register address.
  *	@param[in] data	: Read data buffer.
  *	@param[in] len	: No of bytes to read.
- *	@param[in] dev	: Structure instance of bma4_dev.
+ *	@param[in] dev	: Structure instance of bma4_dev
+ *
+ *	@note For most of the registers auto address increment applies, with the
+ * 	exception of a few special registers, which trap the address. For e.g.,
+ * 	Register address - 0x26, 0x5E.
  *
  *	@return Result of API execution status
  *	@retval 0 -> Success
  *	@retval Any non zero value -> Fail
  */
-uint16_t bma4_read_regs(uint8_t addr, uint8_t *data, uint16_t len, struct bma4_dev *dev);
+uint16_t bma4_read_regs(uint8_t addr, uint8_t *data, uint8_t len, struct bma4_dev *dev);
 
 /*!
  *	@brief This API reads the error status from the sensor.
@@ -1441,7 +1445,8 @@ uint16_t bma4_get_fifo_config(uint8_t *fifo_config, struct bma4_dev *dev);
  *	@retval 0 -> Success
  *	@retval Any non zero value -> Fail
  */
-uint16_t bma4_set_int_pin_config(const struct bma4_int_pin_config *int_pin_config, uint8_t int_line, struct bma4_dev *dev);
+uint16_t bma4_set_int_pin_config(const struct bma4_int_pin_config *int_pin_config, uint8_t int_line,
+		struct bma4_dev *dev);
 
 /*! @brief This API reads the electrical behavior of interrupt pin1 or pin2
  *  from the sensor.
@@ -1485,7 +1490,7 @@ uint16_t bma4_set_int_pin_config(const struct bma4_int_pin_config *int_pin_confi
 uint16_t bma4_get_int_pin_config(struct bma4_int_pin_config *int_pin_config, uint8_t int_line, struct bma4_dev *dev);
 
 /*!
- *	@brief This API reads the feature interrupt status from the sensor.
+ *	@brief This API reads the Feature and Hardware interrupt status from the sensor.
  *
  *	@param[out] int_status : Variable used to get the interrupt status.
  *	@param[in] dev       : Structure instance of bma4_dev.
@@ -1496,6 +1501,32 @@ uint16_t bma4_get_int_pin_config(struct bma4_int_pin_config *int_pin_config, uin
  *
  */
 uint16_t bma4_read_int_status(uint16_t *int_status, struct bma4_dev *dev);
+
+/*!
+ *	@brief This API reads the Feature interrupt status from the sensor.
+ *
+ *	@param[out] int_status_0 : Variable used to get the interrupt status.
+ *	@param[in] dev       : Structure instance of bma4_dev.
+ *
+ *	@return Result of API execution status
+ *	@retval 0 -> Success
+ *	@retval Any non zero value -> Fail
+ *
+ */
+uint16_t bma4_read_int_status_0(uint8_t *int_status_0, struct bma4_dev *dev);
+
+/*!
+ *	@brief This API reads the Hardware interrupt status from the sensor.
+ *
+ *	@param[out] int_status_1 : Variable used to get the interrupt status.
+ *	@param[in] dev       : Structure instance of bma4_dev.
+ *
+ *	@return Result of API execution status
+ *	@retval 0 -> Success
+ *	@retval Any non zero value -> Fail
+ *
+ */
+uint16_t bma4_read_int_status_1(uint8_t *int_status_1, struct bma4_dev *dev);
 
 /*!
  *	@brief This API initializes the auxiliary interface to access
@@ -1517,7 +1548,7 @@ uint16_t bma4_aux_interface_init(struct bma4_dev *dev);
  *	@param[in]	len : User specified data length
  *	@param[out]	aux_data : Pointer variable to store data read
  *	@param[in]	aux_reg_addr : Variable to pass address from where
- *								data is to be read
+ *                      data is to be read
  *
  *	@return Result of API execution status
  *	@retval 0 -> Success
@@ -1533,7 +1564,7 @@ uint16_t bma4_aux_read(uint8_t aux_reg_addr, uint8_t *aux_data, uint16_t len, st
  *	@param[in]	len : User specified data length
  *	@param[out]	aux_data : Pointer variable to store data read
  *	@param[in]	aux_reg_addr : Variable to pass address from where
- *								data is to be written
+ *                      data is to be written
  *
  *	@return Result of API execution status
  *	@retval 0 -> Success
@@ -1541,228 +1572,7 @@ uint16_t bma4_aux_read(uint8_t aux_reg_addr, uint8_t *aux_data, uint16_t len, st
  *
  */
 uint16_t bma4_aux_write(uint8_t aux_reg_addr, uint8_t *aux_data, uint16_t len, struct bma4_dev *dev);
-/***************************************************/
-/*!
- *	@brief This API initializes the auxiliary Mag BMM150 sensor and reads
- *	its chip-id.
- *
- *	@param chip_id : Pointer to store chip id of BMM150 sensor which is
- *	                 read from the sensor.
- *	@param dev     : Structure instance of bma4_dev
- *
- *	@return Result of API execution status
- *	@retval 0 -> Success
- *	@retval Any non zero value -> Fail
- *
- */
-uint16_t bma4_bmm150_mag_interface_init(uint8_t *chip_id, struct bma4_dev *dev);
 
-/*!
- *	@brief This API enables the BMM150 Mag sensor's power control bit
- *	thereby waking up the sensor from suspend to sleep mode.
- *
- *	@param dev : Structure instance of bma4_dev
- *
- *	@return Result of API execution status
- *	@retval 0 -> Success
- *	@retval Any non zero value -> Fail
- *
- */
-uint16_t bma4_bmm150_mag_wakeup(struct bma4_dev *dev);
-
-/*!
- *	@brief This API reads the raw Mag data and performs the compensation of
- *	the read data.
- *
- *	@note Before setting the Mag preset mode make sure BMM150 sensor is
- *	initialized and chip id is verified using the below API.
- *	    - bma4_bmm150_mag_interface_init()
- *
- *	@param mag_comp_xyz: Pointer to structure variable to store the
- *	                     compensated Mag data.
- *	@param dev         : Structure instance of bma4_dev
- *
- *	@return Result of API execution status
- *	@retval 0 -> Success
- *	@retval Any non zero value -> Fail
- *
- */
-uint16_t bma4_bmm150_mag_compensate_xyz(struct bma4_mag *mag_comp_xyz, struct bma4_dev *dev);
-
-/*!
- *	@brief This API compensates BMM150-X axis data which is passed by the
- *	user.
- *
- *	@param  mag_data_x : Variable to specify the Mag raw X axis data.
- *	@param  data_r     : Variable to specify the Mag R data.
- *
- *	@return Compensated Mag X axis data
- *
- */
-int32_t bma4_bmm150_mag_compensate_X(int16_t mag_data_x, uint16_t data_r);
-
-/*!
- *	@brief This API compensates BMM150-Y axis data which is passed by the
- *	user.
- *
- *	@param  mag_data_y : Variable to specify the  Mag raw Y axis data.
- *	@param  data_r     : Variable to specify the Mag R data.
- *
- *	@return Compensated Mag Y axis data
- *
- */
-int32_t bma4_bmm150_mag_compensate_Y(int16_t mag_data_y, uint16_t data_r);
-
-/*!
- *	@brief This API compensates BMM150-Z axis data which is passed by the
- *	user.
- *
- *	@param  mag_data_z : Variable to specify the Mag raw Z axis.
- *	@param  data_r     : Variable to specify the Mag R data.
- *
- *	@return Compensated Mag. Z axis data
- *
- */
-int32_t bma4_bmm150_mag_compensate_Z(int16_t mag_data_z, uint16_t data_r);
-
-/*!
- *	@brief This API used to set the magnetometer power mode.
- *	@note Before setting the Mag power mode
- *	make sure the following two point are addressed
- *		- Make sure the Mag interface is enabled or not,
- *		  by using the bma4_get_if_mode() API.
- *		- If Mag interface is not enabled set the value of 0x02
- *		  to the API bma4_set_if_mode(0x02)
- *
- *	@param mag_sec_if_pow_mode : The value of Mag power mode
- *      value    |  mode
- *      ---------|------------
- *       0       | BMA4_MAG_FORCE_MODE
- *       1       | BMA4_MAG_SUSPEND_MODE
- *	@param dev : Structure instance of bma4_dev
- *
- *
- *	@return Result of API execution status
- *	@retval 0 -> Success
- *	@retval Any non zero value -> Fail
- *
- */
-uint16_t bma4_set_bmm150_mag_and_secondary_if_power_mode(uint8_t mag_sec_if_pow_mode, struct bma4_dev *dev);
-
-/*!
- *	@brief This API sets the pre-set modes of bmm150 sensor.
- *	The pre-set mode setting depends on the output data rate and
- *	x,y,z repetitions
- *
- *	@note Before setting the Mag preset mode make sure BMM150 sensor is
- *	initialized and chip id is verified using the below API.
- *	    - bma4_bmm150_mag_interface_init()
- *      @param  mode: Pre-set mode selection value
- *      Value    |  Pre_set mode
- *      ---------|------------------------------------
- *       1       | BMA4_MAG_PRESETMODE_LOWPOWER
- *       2       | BMA4_MAG_PRESETMODE_REGULAR
- *       3       | BMA4_MAG_PRESETMODE_HIGHACCURACY
- *       4       | BMA4_MAG_PRESETMODE_ENHANCED
- *	@param dev : Structure instance of bma4_dev
- *
- *	@return Result of API execution status
- *	@retval 0 -> Success
- *	@retval Any non zero value -> Fail
- */
-uint16_t bma4_set_bmm150_mag_presetmode(uint8_t mode, struct bma4_dev *dev);
-
-/*!
- *	@brief This API sets the power mode of BMM150 Mag sensor.
- *
- *	@note Before setting the Mag power mode make sure the Mag sensor is
- *	initialized and chip id is verified by calling the below API.
- *	   - bma4_bmm150_mag_interface_init()
- *
- *	@param mag_pow_mode : Variable used to select the Mag power mode
- *      value    |  mode
- *      ---------|------------
- *       0       | FORCE_MODE
- *       1       | SUSPEND_MODE
- *	@param dev : structure instance of bma4_dev
- *
- *	@return Result of API execution status
- *	@retval 0 -> Success
- *	@retval Any non zero value -> Fail
- *
- */
-uint16_t bma4_bmm150_mag_set_power_mode(uint8_t mag_pow_mode, struct bma4_dev *dev);
-/***************************************************/
-/*!
- *	@brief This API initializes and reads the chip id of the AKM9916 sensor.
- *
- *	@param[in] akm_i2c_address : Variable used to store the device address
- *                               of AKM9916 sensor.
- *	@param[out] akm_chip_id    : Pointer variable used to store the chip id
- *                               read from the AKM9916 sensor.
- *      AKM sensor|  Slave address
- *      ----------|-------------------------------
- *      AKM09916  |  BMA4_AUX_AKM09916_I2C_ADDR
- *
- *	@param dev : Structure instance of bma4_dev
- *
- *	@return Result of API execution status
- *	@retval 0 -> Success
- *	@retval Any non zero value -> Fail
- *
- */
-uint16_t bma4_bst_akm_mag_interface_init(uint8_t akm_i2c_address, uint8_t *akm_chip_id, struct bma4_dev *dev);
-
-/*!
- *	@brief This API sets the power mode of the auxiliary AKM9916 sensor.
- *
- *	@note Before setting the power mode, make sure Mag. sensor is
- *	initialized by calling the below API and verify the chip_id.
- *	   - bma4_bst_akm_mag_interface_init()
- *
- *	@param[in] akm_pow_mode : Variable used to specify power mode
- *      value   |    Description
- *      --------|--------------------
- *        0     |  AKM_POWER_DOWN_MODE
- *        1     |  AKM_SINGLE_MEAS_MODE
- *
- *	@param dev[in,out] : Structure instance of bma4_dev
- *
- *	@return Result of API execution status
- *	@retval 0 -> Success
- *	@retval Any non zero value -> Fail
- *
- */
-uint16_t bma4_bst_akm_set_powermode(uint8_t akm_pow_mode, struct bma4_dev *dev);
-
- /*!
- *	@brief This API used to set the interface power mode of the auxiliary
- *	sensor
- *
- *	@note Before setting the Mag power mode
- *	make sure the following two point are addressed
- *		- Make sure the Mag interface is enabled or not,
- *		  by using the bma4_get_if_mode() API.
- *		- If Mag interface is not enabled set the value of 0x10
- *		  to the API bma4_set_if_mode(0x10)
- *
- *	@param[in] mag_sec_if_pow_mode : The value of secondary_if_power_mode
- *     value   |    Description
- *     --------|--------------------
- *       0     |  BMA4_MAG_FORCE_MODE
- *       1     |  BMA4_MAG_SUSPEND_MODE
- *	@param dev[in,out] : structure instance of bma4_dev
- *
- *
- *	@return Result of API execution status
- *	@retval 0 -> Success
- *	@retval Any non zero value -> Fail
- *
- */
-uint16_t bma4_set_bst_akm_and_secondary_if_powermode(uint8_t mag_sec_if_pow_mode, struct bma4_dev *dev);
-
-uint16_t bma4_bmm150_mag_compensate_xyz_raw(
-struct bma4_mag *mag_comp_xyz, struct bma4_mag_xyzr mag_xyzr);
 
 #endif
 /* End of __BMA4_H__ */
