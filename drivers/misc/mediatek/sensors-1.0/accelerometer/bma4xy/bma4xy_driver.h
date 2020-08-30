@@ -1,13 +1,5 @@
-/* BOSCH BMA4XY ACC Sensor Driver
- * (C) Copyright 2011~2017 Bosch Sensortec GmbH All Rights Reserved
- * This software program is licensed subject to the GNU General
- * Public License (GPL).Version 2,June 1991,
- * available at http://www.fsf.org/copyleft/gpl.html
- * VERSION: v0.0.2.6
- * Date: 2017/05/08
- */
-#ifndef _BMA4XY_DRIVER_H
-#define _BMA4XY_DRIVER_H
+#ifndef _BMA4XY_DRIVER_H_
+#define _BMA4XY_DRIVER_H_
 #include <linux/kernel.h>
 #include <linux/unistd.h>
 #include <linux/types.h>
@@ -15,13 +7,18 @@
 #include <linux/version.h>
 #include <linux/module.h>
 #include <linux/init.h>
-#include <linux/i2c.h>
 #include <linux/interrupt.h>
-#include <linux/wakelock.h>
+//#include <linux/wakelock.h>
 #include <linux/input.h>
 #include <linux/workqueue.h>
 #include <linux/slab.h>
 #include <linux/firmware.h>
+
+#include <cust_acc.h>
+#include <accel.h>
+
+#define BMA423
+
 #include "bma4_defs.h"
 #include "bma4.h"
 #if defined(BMA420)
@@ -54,9 +51,6 @@
 #if defined(BMA423)
 #include "bma423.h"
 #endif
-#include <cust_acc.h>
-#include <accel.h>
-
 
 /* sensor name definition*/
 #define SENSOR_NAME "bma4xy_acc"
@@ -64,35 +58,32 @@
 /*struct i2c_client *bma4xy_i2c_client;*/
 
 /* generic */
-#define BMA4XY_CHIP_ID (0x00)
-#define CHECK_CHIP_ID_TIME_MAX   5
-#define FIFO_DATA_BUFSIZE_BMA4XY    1024
-#define BMA4XY_ENABLE_INT1  1
-#define BMA4XY_I2C_WRITE_DELAY_TIME 1
-#define BMA4XY_MAX_RETRY_I2C_XFER (10)
-#define BMA4XY_MAX_RETRY_WAIT_DRDY (100)
-#define BMA4XY_I2C_WRITE_DELAY_TIME 1
-#define BMA4XY_MAX_RETRY_WAKEUP (5)
-#define BMA4XY_DELAY_MIN (1)
-#define BMA4XY_DELAY_DEFAULT (200)
-#define BMA4XY_VALUE_MAX (32767)
-#define BMA4XY_VALUE_MIN (-32768)
-#define BYTES_PER_LINE (16)
-#define REL_UC_STATUS    1
+#define BMA4XY_CHIP_ID				0x00
+#define CHECK_CHIP_ID_TIME_MAX		5
+#define FIFO_DATA_BUFSIZE_BMA4XY	1024
+//#define BMA4XY_ENABLE_INT
+#define BMA4XY_MAX_RETRY_WAIT_DRDY	100
+#define BMA4XY_MAX_RETRY_WAKEUP		5
+#define BMA4XY_DELAY_MIN			1
+#define BMA4XY_DELAY_DEFAULT		200
+#define BMA4XY_VALUE_MAX			32767
+#define BMA4XY_VALUE_MIN			(-32768)
+#define BYTES_PER_LINE				16
+#define REL_UC_STATUS				1
 #define BMA4XY_BUFSIZE				256
 
-/*fifo definition*/
-#define A_BYTES_FRM      6
-#define M_BYTES_FRM      8
-#define MA_BYTES_FRM     14
-#define I2C_DRIVERID_BMA4XY 422
-#define DEBUG 1
+/* fifo definition */
+#define A_BYTES_FRM			6
+#define M_BYTES_FRM			8
+#define MA_BYTES_FRM		14
+#define I2C_DRIVERID_BMA4XY	422
+#define DEBUG
 #define SW_CALIBRATION
-#define BMA4XY_ACC_AXIS_X          0
-#define BMA4XY_ACC_AXIS_Y          1
-#define BMA4XY_ACC_AXIS_Z          2
-#define BMA4XY_ACC_AXIS_NUM     3
-#define BMA4XY_DATA_LEN        6
+#define BMA4XY_ACC_AXIS_X	0
+#define BMA4XY_ACC_AXIS_Y	1
+#define BMA4XY_ACC_AXIS_Z	2
+#define BMA4XY_ACC_AXIS_NUM	3
+#define BMA4XY_DATA_LEN		6
 
 enum ADX_TRC {
 	ADX_TRC_FILTER = 0x01,
@@ -101,35 +92,40 @@ enum ADX_TRC {
 	ADX_TRC_CALI = 0X08,
 	ADX_TRC_INFO = 0X10,
 };
+
 struct scale_factor {
 	u8 whole;
 	u16 fraction;
 };
+
 struct data_resolution {
 	struct scale_factor scalefactor;
 	int sensitivity;
 };
+
 #define C_MAX_FIR_LENGTH (32)
+
 struct data_filter {
 	s16 raw[C_MAX_FIR_LENGTH][BMA4XY_ACC_AXIS_NUM];
 	int sum[BMA4XY_ACC_AXIS_NUM];
 	int num;
 	int idx;
 };
-struct bma4xy_client_data {
+
+struct bma4xy_data {
 	struct bma4_dev device;
 	struct i2c_client *client;
-	struct acc_hw *hw;
-	/*misc */
+	struct acc_hw hw;
+	/* misc */
 	struct data_resolution *reso;
-	atomic_t trace;
-	atomic_t suspend;
+	atomic_t trace; // Used ?
+	atomic_t suspend; // Used
 	atomic_t filter;
-	struct hwmsen_convert cvt;
-	s16 cali_sw[BMA4XY_ACC_AXIS_NUM + 1];
-	/*data */
-	s8 offset[BMA4XY_ACC_AXIS_NUM + 1];	/*+1: for 4-byte alignment */
-	s16 data[BMA4XY_ACC_AXIS_NUM + 1];
+	struct hwmsen_convert cvt; // Used
+	int16_t cali_sw[BMA4XY_ACC_AXIS_NUM + 1];
+	/* data */
+	int8_t offset[BMA4XY_ACC_AXIS_NUM + 1];	/* +1: for 4-byte alignment */
+	int16_t data[BMA4XY_ACC_AXIS_NUM + 1];
 	struct input_dev *acc_input;
 	struct input_dev *uc_input;
 	uint8_t fifo_mag_enable;
@@ -138,7 +134,7 @@ struct bma4xy_client_data {
 	uint8_t acc_pm;
 	uint8_t acc_odr;
 	uint8_t debug_level;
-	int IRQ;
+	int irq;
 	uint8_t gpio_pin;
 	struct work_struct irq_work;
 	uint16_t fw_version;
@@ -147,7 +143,7 @@ struct bma4xy_client_data {
 	unsigned long config_stream_size;
 	int reg_sel;
 	int reg_len;
-	struct wake_lock wakelock;
+	//struct wake_lock wakelock;
 	struct delayed_work delay_work_sig;
 #if defined(BMA422N) || defined(BMA455N)
 	struct delayed_work delay_work_any_motion;
@@ -181,6 +177,6 @@ struct bma4xy_client_data {
 	uint8_t	wrist_wear;
 	uint8_t single_tap;
 	uint8_t double_tap;
-
 };
+
 #endif
