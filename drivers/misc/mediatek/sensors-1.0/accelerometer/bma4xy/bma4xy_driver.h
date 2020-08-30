@@ -118,10 +118,10 @@ struct bma4xy_data {
 	struct acc_hw hw;
 	/* misc */
 	struct data_resolution *reso;
-	atomic_t trace; // Used ?
-	atomic_t suspend; // Used
+	atomic_t trace;
+	atomic_t suspend;
 	atomic_t filter;
-	struct hwmsen_convert cvt; // Used
+	struct hwmsen_convert cvt;
 	int16_t cali_sw[BMA4XY_ACC_AXIS_NUM + 1];
 	/* data */
 	int8_t offset[BMA4XY_ACC_AXIS_NUM + 1];	/* +1: for 4-byte alignment */
