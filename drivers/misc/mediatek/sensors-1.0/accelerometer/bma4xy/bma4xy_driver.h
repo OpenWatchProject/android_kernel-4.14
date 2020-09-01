@@ -8,7 +8,6 @@
 #include <linux/module.h>
 #include <linux/init.h>
 #include <linux/interrupt.h>
-//#include <linux/wakelock.h>
 #include <linux/input.h>
 #include <linux/workqueue.h>
 #include <linux/slab.h>
@@ -21,11 +20,15 @@
 #include "bma4.h"
 #include "bma423.h"
 
-#define SENSOR_NAME "bma4xy_acc"
-
-//#define BMA4XY_ENABLE_INT
-#define BMA4XY_INT_PIN 63
 #define DEBUG
+#define G_RANGE 4
+#define SENSITIVITY ((1 << 12) / 2)
+#define BMA4XY_ENABLE_INT
+//#define BMA4_STEP_COUNTER
+//#define BMA4_WAKEUP
+//#define BMA4_TILT
+
+#define SENSOR_NAME "bma4xy_acc"
 
 struct bma4xy_data {
 	struct bma4_dev device;
@@ -37,19 +40,10 @@ struct bma4xy_data {
 	atomic_t filter;
 	struct hwmsen_convert cvt;
 	/* data */
-	struct input_dev *acc_input;
-	struct input_dev *uc_input;
-	uint8_t acc_pm;
-	uint8_t acc_odr;
 	int irq;
 	struct work_struct irq_work;
-	uint16_t fw_version;
-	uint8_t config_stream_choose;
-	char *config_stream_name;
-	unsigned long config_stream_size;
 	int reg_sel;
 	int reg_len;
-	//struct wake_lock wakelock;
 	struct delayed_work delay_work_sig;
 	atomic_t in_suspend;
 	uint8_t tap_type;

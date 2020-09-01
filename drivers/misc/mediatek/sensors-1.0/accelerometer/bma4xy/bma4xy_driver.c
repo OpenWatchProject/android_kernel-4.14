@@ -21,28 +21,18 @@
 #include "bma4xy_driver.h"
 #include "bma4xy_i2c.h"
 
-//#include <step_counter.h>
-//#include <wake_gesture.h>
-//#include <tilt_detector.h>
-
-static struct bma4xy_data *bma4xy_data;
-
-//#define BMA4_STEP_COUNTER
-//#define BMA4_WAKEUP
-//#define BMA4_TILT
-
-static int bma4xy_i2c_probe(struct i2c_client *client, const struct i2c_device_id *id);
-static int bma4xy_i2c_remove(struct i2c_client *client);
-#ifdef CONFIG_PM_SLEEP
-static int bma4xy_i2c_suspend(struct device *dev);
-static int bma4xy_i2c_resume(struct device *dev);
+#ifdef BMA4_STEP_COUNTER
+#include <step_counter.h>
 #endif
+#ifdef BMA4_WAKEUP
+#include <wake_gesture.h>
+#endif
+#ifdef BMA4_TILT
+#include <tilt_detector.h>
+#endif
+
 static int bma4xy_acc_init(void);
 static int bma4xy_acc_uninit(void);
-static int gsensor_set_delay(uint64_t ns);
-
-#define G_RANGE 4
-#define SENSITIVITY ((1 << 12) / 2)
 
 #define BMA4XY_TAG "[BMA4xy] "
 #ifdef DEBUG
@@ -57,10 +47,7 @@ static int gsensor_set_delay(uint64_t ns);
 #define BMA4XY_DBG(fmt, args...) pr_debug(BMA4XY_TAG fmt, ##args)
 #endif
 
-//static int remap_dir = 0;
-static bool enable_status;
-static bool sensor_power = true;
-static int sensor_suspend;
+static struct bma4xy_data *bma4xy_data;
 static DEFINE_MUTEX(gsensor_mutex);
 
 static void bma4xy_i2c_delay_us(uint32_t period_us, void *intf_ptr)
@@ -78,7 +65,7 @@ static BMA4_INTF_RET_TYPE bma4xy_i2c_write_wrapper(uint8_t reg_addr, const uint8
 	return bma4xy_i2c_write(bma4xy_data->client, reg_addr, data, len);
 }
 
-static int bma4xy_set_power_mode(bool enable)
+static int bma4xy_enable(uint8_t enable)
 {
 	int err = 0;
 
@@ -104,19 +91,16 @@ static int bma4xy_set_power_mode(bool enable)
 			BMA4XY_ERR("bma4_set_accel_enable failed: %d\n", err);
 			return err;
 		}
+
 		BMA4XY_LOG("bma4xy enabled!\n");
 	}
 
-	sensor_power = enable;
-	bma4xy_data->acc_pm = enable;
-	bma4xy_i2c_delay_us(5, NULL);
-
-	BMA4XY_LOG("bma4xy_set_power_mode finished! sensor_power = %d\n", sensor_power);
+	BMA4XY_LOG("bma4xy_enable finished! enable = %d\n", enable);
 
 	return err;
 }
 
-static int bma4xy_set_tilt_remap()
+static int bma4xy_set_feature_remap()
 {
 	int err;
 	struct bma423_axes_remap remap_data;
@@ -139,179 +123,106 @@ static int bma4xy_set_tilt_remap()
 }
 
 #ifdef BMA4XY_ENABLE_INT
-static void bma4xy_uc_function_handle(uint8_t status)
+static void bma4xy_uc_function_handle(uint8_t int_status_0)
 {
 #ifdef BMA4_STEP_COUNTER
-	if (status & SIG_MOTION_OUT == 0x01)
-		step_notify(TYPE_SIGNIFICANT);
-	if (status & STEP_DET_OUT == 0x02)
+	if (int_status_0 & BMA423_STEP_CNTR_INT)
 		step_notify(TYPE_STEP_DETECTOR);
 #endif
+
 #ifdef BMA4_TILT
-	if (status & TILT_OUT == 0x08) {
+	if (int_status_0 & BMA423_WRIST_WEAR_INT)
 		tilt_notify();
-	}
 #endif
+
 #ifdef BMA4_WAKEUP
-	if ((status & WAKEUP_OUT) == 0x20)
+	if (int_status_0 & BMA423_ANY_MOT_INT)
 		wag_notify();
 #endif
 }
 
 static void bma4xy_irq_work_func(struct work_struct *work)
 {
-	unsigned char int_status[2] = {0, 0};
+	uint8_t int_status[2] = {0};
 	int err = 0;
-	int in_suspend_copy;
 
-	//in_suspend_copy = atomic_read(&bma4xy_data->in_suspend);
-	//tilt_notify();
-	/*read the interrut status two register*/
-	err = bma4xy_data->device.bus_read(BMA4_INT_STAT_0_ADDR, int_status, 2, NULL);
+	err = bma4_read_regs(BMA4_INT_STAT_0_ADDR, int_status, 2, &bma4xy_data->device);
 	if (err) {
-		BMA4XY_ERR("[%s] bus_read BMA4xy stat reg fail\n", __func__);
+		BMA4XY_ERR("bma4_read_regs failed: %d\n", err);
 		return;
 	}
-	BMA4XY_LOG("int_status0 = 0x%x int_status1 =0x%x",
-	           int_status[0], int_status[1]);
 
-	return ;   //LSQ add
-	if (in_suspend_copy &&
-	    ((int_status[0] & STEP_DET_OUT) == 0x02)) {
-		return;
-	}
-	if (int_status[0])
-		bma4xy_uc_function_handle(bma4xy_data, (uint8_t)int_status[0]);
+	BMA4XY_LOG("int_status_0 = 0x%X, int_status_1 = 0x%X\n", int_status[0], int_status[1]);
 
+	//if (in_suspend_copy && ((int_status[0] & STEP_DET_OUT) == 0x02)) {
+	//	return;
+	//}
+
+	bma4xy_uc_function_handle(int_status[0]);
 }
 
-static void bma4xy_delay_sigmo_work_func(struct work_struct *work)
+static irqreturn_t bma4xy_irq_handler(int irq, void *handle)
 {
-	unsigned char int_status[2] = {0, 0};
-	int err = 0;
-	/*read the interrut status two register*/
-	err = bma4xy_data->device.bus_read(bma4xy_data->device.dev_addr,
-	                                   BMA4_INT_STAT_0_ADDR, int_status, 2);
-	if (err)
-		return;
-	BMA4XY_LOG("int_status0 = %x int_status1 =%x",
-	           int_status[0], int_status[1]);
-#ifdef BMA4_STEP_COUNTER
-	if ((int_status[0] & SIG_MOTION_OUT) == 0x01)
-		step_notify(TYPE_SIGNIFICANT);
-#endif
-}
-
-static irqreturn_t bma4xy_irq_handle(int irq, void *handle)
-{
-#if 0  //LSQ mask these code
-	int in_suspend_copy;
-	BMA4XY_LOG("[%s] and tilt_enable:[%d]   wakeup_enable:[%d]\n", __func__, bma4xy_data->tilt_enable, bma4xy_data->wakeup_enable);
-	in_suspend_copy = atomic_read(&bma4xy_data->in_suspend);
-	BMA4XY_LOG("[%s] and is_suspend_copy:[%d]\n", __func__, in_suspend_copy);
-
-	/*this only deal with SIG_motion CTS test*/
-	if ((in_suspend_copy == 1) &&
-	    ((bma4xy_data->sigmotion_enable == 1) &&
-	     (bma4xy_data->tilt_enable != 1) &&
-	     (bma4xy_data->pickup_enable != 1) &&
-	     (bma4xy_data->glance_enable != 1) &&
-	     (bma4xy_data->wakeup_enable != 1))) {
-		wake_lock_timeout(&bma4xy_data->wakelock, HZ);
-		schedule_delayed_work(&bma4xy_data->delay_work_sig,
-		                      msecs_to_jiffies(50));
-	} else if ((in_suspend_copy == 1) &&
-	           ((bma4xy_data->sigmotion_enable == 1) ||
-	            (bma4xy_data->tilt_enable == 1) ||
-	            (bma4xy_data->pickup_enable == 1) ||
-	            (bma4xy_data->glance_enable == 1) ||
-	            (bma4xy_data->wakeup_enable == 1))) {
-		wake_lock_timeout(&bma4xy_data->wakelock, HZ);
-		schedule_work(&bma4xy_data->irq_work);
-	} else
-		schedule_work(&bma4xy_data->irq_work);
-#else
 	schedule_work(&bma4xy_data->irq_work);
-#endif
 	return IRQ_HANDLED;
 }
 
 static int bma4xy_request_irq()
 {
-	int err = 0;	
-
-#if 1
-	err = gpio_request_one(BMA4XY_INT_PIN, GPIOF_IN, "bma4xy_interrupt");
-	if (err < 0)
-		return err;
-
-	err = gpio_direction_input(BMA4XY_INT_PIN);
-	if (err < 0)
-		return err;
-
-	bma4xy_data->irq = gpio_to_irq(BMA4XY_INT_PIN);
-
-	err = request_irq(bma4xy_data->irq, bma4xy_irq_handle, IRQF_TRIGGER_RISING, SENSOR_NAME, bma4xy_data);
-	if (err < 0)
-		return err;
-	INIT_WORK(&bma4xy_data->irq_work, bma4xy_irq_work_func);
-
-	return err;
-#else
+	int ret;
 	struct device_node *node = NULL;
 	struct pinctrl *pinctrl;
 	struct pinctrl_state *pins_default;
 	struct pinctrl_state *pins_cfg;
-	int ret = 0;
 
-	accelPltFmDev = get_accel_platformdev();
-	if (NULL != accelPltFmDev) {
-		pinctrl = devm_pinctrl_get(&accelPltFmDev->dev);
-		if (IS_ERR(pinctrl)) {
-			ret = PTR_ERR(pinctrl);
-			printk("Cannot find accel pinctrl!\n");
-		}
+	/* gpio setting */
+	pinctrl = devm_pinctrl_get(&bma4xy_data->client->dev);
+	if (!IS_ERR(pinctrl)) {
 		pins_default = pinctrl_lookup_state(pinctrl, "pin_default");
 		if (IS_ERR(pins_default)) {
 			ret = PTR_ERR(pins_default);
-			printk("Cannot find accel pinctrl default!\n");
-
+			BMA4XY_ERR("Cannot find step pinctrl default! ret = %d\n", ret);
+			//return ret;
 		}
 
 		pins_cfg = pinctrl_lookup_state(pinctrl, "pin_cfg");
-		if (IS_ERR(pins_cfg)) {
-			ret = PTR_ERR(pins_cfg);
-			printk("Cannot find accel pinctrl pin_cfg!\n");
+		if (!IS_ERR(pins_cfg)) {
+			pinctrl_select_state(pinctrl, pins_cfg);
 		} else {
-			printk("find out accel pinctrl pin_cfg!\n");
+			ret = PTR_ERR(pins_cfg);
+			BMA4XY_ERR("Cannot find step pinctrl pin_cfg! ret = %d\n", ret);
+			//return ret;
 		}
 
-		pinctrl_select_state(pinctrl, pins_cfg);
 	} else {
-		printk("Cannot find accel platform dev!\n");
+		ret = PTR_ERR(pinctrl);
+		BMA4XY_ERR("Cannot find step pinctrl! ret = %d\n", ret);
+		//return ret;
 	}
 
-	node = of_find_compatible_node(NULL, NULL, "mediatek,gse_1-eint");
+	node = of_find_compatible_node(NULL, NULL, "mediatek,GSE_1-eint");
+	/* eint request */
 	if (node) {
-		/*touch_irq = gpio_to_irq(tpd_int_gpio_number);*/
+		pr_debug("irq node is ok!");
 		bma4xy_data->irq = irq_of_parse_and_map(node, 0);
-		ret = request_irq(bma4xy_data->irq, bma4xy_irq_handle,
-		                  IRQF_TRIGGER_RISING ,
-		                  SENSOR_NAME, bma4xy_data);
-		if (ret > 0)
-			printk(KERN_ERR " [bma4xy_request_irq]  bma4xy request_irq failed\n");
-		else
-			printk(KERN_ERR " [bma4xy_request_irq]  bma4xy request_irq sucess\n");
+		pr_debug("bma4xy_data->irq = %d\n", bma4xy_data->irq);
+		if (!bma4xy_data->irq) {
+			BMA4XY_ERR("irq_of_parse_and_map fail!!\n");
+			return -EINVAL;
+		}
+		if (request_irq(bma4xy_data->irq, bma4xy_irq_handler, IRQF_TRIGGER_RISING, "mediatek,GSE_1-eint", NULL)) {
+			BMA4XY_ERR("IRQ LINE NOT AVAILABLE!!\n");
+			return -EINVAL;
+		}
+		enable_irq(bma4xy_data->irq);
 	} else {
-		printk(KERN_INFO "[%s] can not find!", __func__);
+		BMA4XY_ERR("null irq node!!\n");
+		return -EINVAL;
 	}
-	printk(KERN_INFO "[bma4xy_request_irq] irq_num= %d IRQ_num=%d \n",
-	       bma4xy_data->gpio_pin, bma4xy_data->irq);
+
 	INIT_WORK(&bma4xy_data->irq_work, bma4xy_irq_work_func);
-	INIT_DELAYED_WORK(&bma4xy_data->delay_work_sig,
-	                  bma4xy_delay_sigmo_work_func);
-#endif
-	return err;
+
+	return 0;
 }
 #endif
 
@@ -334,9 +245,9 @@ static int bma4xy_init_client()
 		return err;
 	}
 
-	err = bma4xy_set_power_mode(0);
+	err = bma4xy_enable(0);
 	if (err) {
-		BMA4XY_ERR("bma4xy_set_power_mode failed: %d\n", err);
+		BMA4XY_ERR("bma4xy_enable failed: %d\n", err);
 		return err;
 	}
 
@@ -359,9 +270,9 @@ static int bma4xy_init_client()
 		return err;
 	}
 
-	err = bma4xy_set_tilt_remap();
+	err = bma4xy_set_feature_remap();
 	if (err)
-		BMA4XY_ERR("bma4xy_set_tilt_remap failed: %d\n", err);
+		BMA4XY_ERR("bma4xy_set_feature_remap failed: %d\n", err);
 
 	BMA4XY_LOG("bma4xy_init_client finished!\n");
 
@@ -394,32 +305,20 @@ static const struct dev_pm_ops bma4xy_pm_ops = {
 };
 #endif
 
-static int gsensor_open_report_data(int open)
-{
-	return 0;
-}
-
 static int gsensor_enable_nodata(int en)
 {
 	int err = 0;
 
-	if ((en == 0 && sensor_power == false) ||
-	    (en == 1 && sensor_power == true)) {
-		enable_status = sensor_power;
-	} else {
-		enable_status = !sensor_power;
-
-		if (atomic_read(&bma4xy_data->suspend) == 0) {
-			err = bma4xy_set_power_mode(enable_status);
-			if (err) {
-				BMA4XY_ERR("gsensor_enable_nodata failed!\n");
-				return err;
-			}
-
-			BMA4XY_LOG("bma4xy not in suspend. enable_status = %d\n", enable_status);
-		} else {
-			BMA4XY_LOG("bma4xy in suspend, can't enable/disable! enable_status = %d\n", enable_status);
+	if (atomic_read(&bma4xy_data->suspend) == 0) {
+		err = bma4xy_enable(en);
+		if (err) {
+			BMA4XY_ERR("bma4xy_enable failed: %d\n", err);
+			return err;
 		}
+
+		BMA4XY_LOG("bma4xy not suspended. en = %d\n", en);
+	} else {
+		BMA4XY_LOG("bma4xy is suspended, can't enable or disable it! en = %d\n", en);
 	}
 
 	BMA4XY_LOG("gsensor_enable_nodata finished!\n");
@@ -482,9 +381,6 @@ static int gsensor_get_data(int *x, int *y, int *z, int *status)
 	int raw_data[3] = {0};
 	struct hwmsen_convert *cvt = &bma4xy_data->cvt;
 
-	if (sensor_suspend == 1)
-		return 0;
-
 	mutex_lock(&gsensor_mutex);
 	err = bma4_read_accel_xyz(&accel, &bma4xy_data->device);
 	mutex_unlock(&gsensor_mutex);
@@ -534,6 +430,9 @@ static int bma4xy_i2c_probe(struct i2c_client *client, const struct i2c_device_i
 		goto exit_err_clean;
 	}
 
+	// TODO: Remove temporary hack (tested on LEM12)
+	bma4xy_data->hw.direction = 1;
+
 	err = hwmsen_get_convert(bma4xy_data->hw.direction, &bma4xy_data->cvt);
 	if (err) {
 		BMA4XY_ERR("Invalid direction: %d\n", bma4xy_data->hw.direction);
@@ -557,14 +456,11 @@ static int bma4xy_i2c_probe(struct i2c_client *client, const struct i2c_device_i
 	bma4xy_data->device.delay_us = bma4xy_i2c_delay_us;
 	bma4xy_data->device.read_write_len = 8;
 
-	//wake_lock_init(&bma4xy_data->wakelock, WAKE_LOCK_SUSPEND, "bma4xy");
 	err = bma4xy_init_client();
 	if (err)
 		BMA4XY_ERR("bma4xy_init_client failed: %d\n", err);
 
-	control_path.open_report_data = gsensor_open_report_data;
 	control_path.enable_nodata = gsensor_enable_nodata;
-	control_path.set_delay = gsensor_set_delay;
 	control_path.is_report_input_direct = false;
 	control_path.is_support_batch = false;
 	control_path.batch = gsensor_acc_batch;
@@ -651,6 +547,368 @@ static int bma4xy_acc_uninit(void)
 	return 0;
 }
 
+#ifdef BMA4_STEP_COUNTER
+static int bma4xy_step_c_open_report_data(int open)
+{
+	return 0;
+}
+
+static int bma4xy_step_c_set_delay(uint64_t delay)
+{
+	return 0;
+}
+
+static int bma4xy_setp_d_set_selay(uint64_t delay)
+{
+	return 0;
+}
+
+static int bma4xy_step_c_enable_nodata(int en)
+{
+	int err = 0;
+	struct i2c_client *client = bma4xy_i2c_client;
+	struct bma4xy_client_data *client_data = i2c_get_clientdata(client);
+
+	BMA4XY_LOG("bma4xy_step_c_enable_nodata en = %d\n", en);
+
+	if (en == 1) {
+		err = bma4_set_advance_power_save(0, &client_data->device);
+		bma4xy_i2c_delay(10);
+		err += bma4_set_accel_enable(BMA4_ENABLE, &client_data->device);
+		bma4xy_i2c_delay(10);
+	}
+	if (err)
+		BMA4XY_ERR("set acc_op_mode failed\n\n");
+
+	if (bma423_feature_enable(
+	        BMA423_STEP_CNTR, en, &client_data->device) < 0) {
+		BMA4XY_ERR("set bma421 virtual error\n\n");
+		return -EINVAL;
+	}
+
+	if ((en == 0) && (bma4_obj_i2c_data->sigmotion_enable == 0) &&
+	    (bma4_obj_i2c_data->stepdet_enable == 0) &&
+	    (bma4_obj_i2c_data->acc_pm == 0)) {
+		err = bma4_set_accel_enable(BMA4_DISABLE, &client_data->device);
+		bma4xy_i2c_delay(10);
+	}
+	if (err)
+		BMA4XY_ERR("set acc_op_mode failed\n\n");
+	bma4_obj_i2c_data->stepcounter_enable = en;
+	return err;
+}
+
+static int bma4xy_step_c_enable_significant(int en)
+{
+	int err = 0;
+	struct i2c_client *client = bma4xy_i2c_client;
+	struct bma4xy_client_data *client_data = i2c_get_clientdata(client);
+
+	BMA4XY_LOG("bma4xy_step_c_enable_significant en = %d", en);
+
+	if (en == 1) {
+		err = bma4_set_advance_power_save(0, &client_data->device);
+		bma4xy_i2c_delay(10);
+		err += bma4_set_accel_enable(BMA4_ENABLE, &client_data->device);
+		bma4xy_i2c_delay(10);
+	}
+
+	if (err)
+		BMA4XY_ERR("set acc_op_mode failed\n");
+
+	if ((en == 0) && (bma4_obj_i2c_data->stepcounter_enable == 0) &&
+	    (bma4_obj_i2c_data->stepdet_enable == 0) &&
+	    (bma4_obj_i2c_data->acc_pm == 0)) {
+		err = bma4_set_accel_enable(BMA4_DISABLE, &client_data->device);
+		bma4xy_i2c_delay(10);
+	}
+	if (err)
+		BMA4XY_ERR("set acc_op_mode failed\n");
+
+	bma4xy_i2c_delay(10);
+
+	bma4_obj_i2c_data->sigmotion_enable = en;
+
+	return err;
+
+}
+
+static int bma4xy_step_c_enable_step_detect(int enable)
+{
+	int err = 0;
+	struct i2c_client *client = bma4xy_i2c_client;
+	struct bma4xy_client_data *client_data = i2c_get_clientdata(client);
+
+	BMA4XY_LOG("bma4xy_step_c_enable_step_detect en = %d", enable);
+	if (enable == 1) {
+		err = bma4_set_advance_power_save(0, &client_data->device);
+		bma4xy_i2c_delay(10);
+		err += bma4_set_accel_enable(BMA4_ENABLE, &client_data->device);
+		bma4xy_i2c_delay(10);
+	}
+	if (err)
+		BMA4XY_ERR("set acc_op_mode failed\n");
+
+	bma4xy_i2c_delay(10);
+
+	if (bma423_step_detector_enable(enable, &client_data->device) < 0) {
+		BMA4XY_ERR("set bma421 virtual error\n");
+		return -EINVAL;
+	}
+
+	if ((enable == 0) && (bma4_obj_i2c_data->sigmotion_enable == 0) &&
+	    (bma4_obj_i2c_data->stepcounter_enable == 0) &&
+	    (bma4_obj_i2c_data->wakeup_enable == 0) &&
+	    (bma4_obj_i2c_data->tilt_enable == 0) &&
+	    (bma4_obj_i2c_data->wrist_wear == 0) &&
+	    (bma4_obj_i2c_data->single_tap == 0) &&
+	    (bma4_obj_i2c_data->double_tap == 0) &&
+	    (bma4_obj_i2c_data->acc_pm == 0)) {
+		err = bma4_set_accel_enable(BMA4_DISABLE, &client_data->device);
+		bma4xy_i2c_delay(10);
+	}
+	if (err)
+		BMA4XY_ERR("set acc_op_mode failed\n");
+	bma4_obj_i2c_data->stepdet_enable = enable;
+	return err;
+}
+
+static int bma4xy_step_c_get_data(uint32_t *value, int *status)
+{
+	int err = 0;
+	uint32_t step_counter_val = 0;
+	struct i2c_client *client = bma4xy_i2c_client;
+	struct bma4xy_client_data *client_data = i2c_get_clientdata(client);
+
+	err = bma423_step_counter_output(
+	          &step_counter_val, &client_data->device);
+
+	if (err) {
+		BMA4XY_ERR("read failed");
+		return err;
+	}
+	*value = step_counter_val;
+	*status = 1;
+	BMA4XY_LOG("step_c_get_data = %d\n", (int)(*value));
+	return err;
+}
+
+static int bma4xy_stc_get_data_significant(uint32_t *value, int *status)
+{
+	return 0;
+}
+
+static int bma4xy_stc_get_data_step_d(uint32_t *value, int *status)
+{
+	return 0;
+}
+
+static int bma4xy_floor_set_delay(uint64_t ns)
+{
+	return 0;
+}
+
+static int bma4xy_floor_c_batch(int flag, int64_t samplingPeriodNs, int64_t maxBatchReportLatencyNs)
+{
+	return 0;
+}
+
+static int bma4xy_floor_c_flush(void)
+{
+	return 0;
+}
+
+static int bma4xy_floor_enable(int en)
+{
+	return 0;
+}
+static int bma4xy_get_data_floor(uint32_t *value, int *status)
+{
+	return 0;
+}
+
+static int bma4xy_step_c_probe(void)
+{
+	int err = 0;
+	struct step_c_control_path control_path = {0};
+	struct step_c_data_path data_path = {0};
+
+	BMA4XY_FUN();
+
+	control_path.open_report_data = bma4xy_step_c_open_report_data;
+	control_path.enable_nodata = bma4xy_step_c_enable_nodata;
+	control_path.enable_step_detect = bma4xy_step_c_enable_step_detect;
+	control_path.enable_significant = bma4xy_step_c_enable_significant;
+	control_path.step_c_set_delay = bma4xy_step_c_set_delay;
+	control_path.step_d_set_delay = bma4xy_setp_d_set_selay;
+	control_path.is_report_input_direct = false;
+	control_path.is_counter_support_batch = false;
+	control_path.is_detector_support_batch = false;
+	control_path.is_smd_support_batch = false;
+	control_path.is_report_input_direct = false;
+	control_path.enable_floor_c = bma4xy_floor_enable;
+	control_path.floor_c_set_delay = bma4xy_floor_set_delay;
+	control_path.floor_c_batch = bma4xy_floor_c_batch;
+	control_path.floor_c_flush = bma4xy_floor_c_flush;
+	err = step_c_register_control_path(&control_path);
+	if (err) {
+		BMA4XY_ERR("step_c_register_control_path fail = %d\n", err);
+		goto exit;
+	}
+
+	data_path.get_data = bma4xy_step_c_get_data;
+	data_path.vender_div = 1000;
+	data_path.get_data_significant = bma4xy_stc_get_data_significant;
+	data_path.get_data_step_d = bma4xy_stc_get_data_step_d;
+	data_path.get_data_floor_c = bma4xy_get_data_floor;
+	err = step_c_register_data_path(&data_path);
+	if (err) {
+		BMA4XY_ERR("step_c_register_data_path fail = %d\n", err);
+		goto exit;
+	}
+
+	BMA4XY_LOG("%s: OK\n", __func__);
+
+	return 0;
+exit:
+	BMA4XY_ERR("err = %d\n", err);
+	return err;
+}
+
+static int bma4xy_step_c_uninit(void)
+{
+	BMA4XY_FUN();
+	return 0;
+}
+
+static int bma4xy_step_c_init(void)
+{
+	int err = 0;
+	BMA4XY_LOG("bma4xy_step_c_init\n");
+
+	err = bma4xy_step_c_probe();
+	if (err) {
+		BMA4XY_ERR("bma4xy_step_c_probe failed: %d\n", err);
+		return err;
+	}
+
+	return 0;
+}
+
+static struct step_c_init_info bma4xy_step_c_init_info = {
+	.name = "bma4xy_step_c",
+	.init = bma4xy_step_c_init,
+	.uninit = bma4xy_step_c_uninit,
+};
+#endif
+
+#ifdef BMA4_TILT
+static int bma4xy_tilt_enable(int en)
+{
+	int err = 0;
+
+	BMA4XY_LOG("bma4xy_tilt_enable enable = %d\n", en);
+
+	if (en == 1) {
+		err = bma4_set_advance_power_save(BMA4_DISABLE, &bma4xy_data->device);
+		if (err)
+			BMA4XY_ERR("bma4_set_advance_power_save failed: %d\n", err);
+
+		bma4xy_i2c_delay(10);
+
+		err = bma4_set_accel_enable(BMA4_ENABLE, &bma4xy_data->device);
+		if (err)
+			BMA4XY_ERR("bma4_set_accel_enable failed: %d\n", err);
+
+		bma4xy_i2c_delay(10);
+	}
+
+	err = bma423_feature_enable(BMA423_WRIST_WEAR, en, &bma4xy_data->device);
+	if (err) {
+		BMA4XY_ERR("bma423_feature_enable failed: %d\n", err);
+		return err;
+	}
+
+	bma4xy_i2c_delay(10);
+
+	if (en == 0 &&
+	    bma4_obj_i2c_data->sigmotion_enable == 0 &&
+	    bma4_obj_i2c_data->stepdet_enable == 0 &&
+	    bma4_obj_i2c_data->stepcounter_enable == 0 &&
+	    bma4_obj_i2c_data->wakeup_enable == 0 &&
+	    bma4_obj_i2c_data->single_tap == 0 &&
+	    bma4_obj_i2c_data->double_tap == 0 &&
+	    bma4_obj_i2c_data->acc_pm == 0) {
+		err = bma4_set_accel_enable(BMA4_DISABLE, &bma4xy_data->device);
+		if (err)
+			BMA4XY_ERR("bma4_set_accel_enable failed: %d\n", err);
+	}
+
+	bma4xy_i2c_delay(10);
+	bma4_obj_i2c_data->wrist_wear = en;
+	bma4_obj_i2c_data->tilt_enable = en;
+
+	return 0;
+}
+
+static int bma4xy_get_data_tilt(void)
+{
+	return 0;
+}
+
+static int bma4xy_tilt_probe(void)
+{
+	int err = 0;
+	struct tilt_control_path control_path = {0};
+	struct tilt_data_path data_path = {0};
+
+	BMA4XY_FUN();
+
+	control_path.open_report_data = bma4xy_tilt_enable;
+	err = tilt_register_control_path(&control_path);
+	if (err) {
+		BMA4XY_ERR("tilt_register_control_path failed: %d\n", err);
+		return err;
+	}
+
+	data_path.get_data = bma4xy_get_data_tilt;
+	err = tilt_register_data_path(&data_path);
+	if (err) {
+		BMA4XY_ERR("tilt_register_data_path failed: %d\n", err);
+		return err;
+	}
+
+	return 0;
+}
+
+static int bma4xy_tilt_uninit(void)
+{
+	BMA4XY_FUN();
+	return 0;
+}
+
+static int bma4xy_tilt_init(void)
+{
+	int err;
+
+	BMA4XY_FUN();
+
+	err = bma4xy_tilt_probe();
+	if (err) {
+		BMA4XY_ERR("bma4xy_tilt_probe failed: %d\n", err);
+		return err;
+	}
+
+	return 0;
+}
+
+static struct tilt_init_info bma4xy_tilt_init_info = {
+	.name = "bma4xy_tilt",
+	.init = bma4xy_tilt_init,
+	.uninit = bma4xy_tilt_uninit,
+};
+#endif
+
 static int __init bma4xy_init(void)
 {
 	int err = 0;
@@ -664,7 +922,7 @@ static int __init bma4xy_init(void)
 
 #ifdef BMA4_STEP_COUNTER
 	// Register the step counter driver
-	err = step_c_driver_add(&bma4xy_stc_init_info);
+	err = step_c_driver_add(&bma4xy_step_c_init_info);
 	if (err) {
 		BMA4XY_ERR("step_c_driver_add failed: %d\n", err);
 		goto exit;
