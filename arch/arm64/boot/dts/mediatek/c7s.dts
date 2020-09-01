@@ -91,6 +91,9 @@
 /*  start sensor */
 	gsensor@18 {
 		compatible = "mediatek,bma4xy";
+		pinctrl-names = "pin_default", "pin_cfg";
+		pinctrl-0 = <&gsensor_intpin_default>;
+		pinctrl-1 = <&gsensor_intpin_cfg>;
 		i2c_num	= <1>;
 		direction = <2>;
 		power_id = <0xffff>;
@@ -156,6 +159,22 @@
 };
 
 /* sensor gpio standization */
+&pio {
+
+	gsensor_intpin_cfg: gsensorpincfg {
+
+	    pins_cmd_dat {
+			pinmux = <PINMUX_GPIO63__FUNC_GPIO63>;
+			slew-rate = <0>;
+			bias-pull-down = <00>;
+		};
+	};
+
+	gsensor_intpin_default: gsensordefaultcfg {
+
+	};
+};
+
 &pio {
 
 	gyro_intpin_cfg: gyropincfg {
