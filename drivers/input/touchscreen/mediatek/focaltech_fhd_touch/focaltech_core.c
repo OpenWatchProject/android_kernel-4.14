@@ -958,11 +958,10 @@ static int fts_power_source_init(struct fts_ts_data *ts_data)
 	}
 
 	ts_data->power_disabled = true;
-#if 0
+
 	ret = fts_power_source_ctrl(ts_data, ENABLE);
 	if (ret)
 		FTS_ERROR("fail to enable power(regulator)");
-#endif
 
 	FTS_FUNC_EXIT();
 	return ret;
