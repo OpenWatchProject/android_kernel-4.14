@@ -14,6 +14,9 @@
 #include "lcm_drv.h"
 #include <linux/string.h>
 
+#define FRAME_HEIGHT 400
+#define FRAME_WIDTH 400
+
 #define REGFLAG_DELAY 0xFE
 #define REGFLAG_END_OF_TABLE 0xFF
 
@@ -65,31 +68,29 @@ static struct LCM_setting_table lcm_initialization_setting[] = {
 	{0xBD, 11, {0xA1, 0xB2, 0x2B, 0x1A, 0x56, 0x43, 0x34, 0x65, 0xFF, 0xFF, 0x0F}},
 	{0xF0, 1, {0x3C}},
 	{0xF0, 1, {0x69}},
-	{0x21, 0, {0x00}},
-	{0x11 , 0 , {0x00}},
-	{REGFLAG_DELAY, 120, {}},
-	{0x29 , 0 , {0x00}},
-	{REGFLAG_DELAY, 50, {}},
+	{0x21, 0, {}},
+	{0x11 , 0 , {}},
+	{REGFLAG_DELAY, 5, {}},
+	{0x29 , 0 , {}},
 	{REGFLAG_END_OF_TABLE, 0, {}}
 };
 
 static struct LCM_setting_table lcm_sleep_out_setting[] = {
 	// Sleep Out
-	{0x11, 0, {0x00}},
+	{0x11, 0, {}},
 	{REGFLAG_DELAY, 5, {}},
 
 	// Display On
-	{0x29, 0, {0x00}},
-	{REGFLAG_DELAY, 10, {}},
+	{0x29, 0, {}},
 	{REGFLAG_END_OF_TABLE, 0, {}}
 };
 
 static struct LCM_setting_table lcm_sleep_in_setting[] = {
 	// Display Off
-	{0x28, 0, {0x00}},
+	{0x28, 0, {}},
 
 	// Sleep In
-	{0x10, 0, {0x00}},
+	{0x10, 0, {}},
 	{REGFLAG_DELAY, 5, {}},
 	{REGFLAG_END_OF_TABLE, 0, {}}
 };
@@ -123,8 +124,8 @@ static void lcm_get_params(struct LCM_PARAMS *params)
 	memset(params, 0, sizeof(struct LCM_PARAMS));
 
 	params->type = LCM_TYPE_DSI;
-	params->width = 400;
-	params->height = 400;
+	params->width = FRAME_WIDTH;
+	params->height = FRAME_HEIGHT;
 	params->dbi.te_mode = LCM_DBI_TE_MODE_VSYNC_ONLY;
 	params->dbi.te_edge_polarity = LCM_POLARITY_RISING;
 	params->dsi.mode = BURST_VDO_MODE;
@@ -140,11 +141,11 @@ static void lcm_get_params(struct LCM_PARAMS *params)
 	params->dsi.vertical_sync_active = 3;
 	params->dsi.vertical_backporch = 4;
 	params->dsi.vertical_frontporch = 4;
-	params->dsi.vertical_active_line = 400;
+	params->dsi.vertical_active_line = FRAME_HEIGHT;
 	params->dsi.horizontal_sync_active = 40;
 	params->dsi.horizontal_backporch = 40;
 	params->dsi.horizontal_frontporch = 40;
-	params->dsi.horizontal_active_pixel = 400;
+	params->dsi.horizontal_active_pixel = FRAME_WIDTH;
 	params->dsi.PLL_CLOCK = 150;
 	params->dsi.ssc_disable = 1;
 }
