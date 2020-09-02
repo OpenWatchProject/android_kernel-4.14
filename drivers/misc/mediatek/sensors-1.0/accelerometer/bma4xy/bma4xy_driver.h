@@ -26,7 +26,7 @@
 #define BMA4XY_ENABLE_INT
 //#define BMA4_STEP_COUNTER
 //#define BMA4_WAKEUP
-//#define BMA4_TILT
+#define BMA4_TILT
 
 #define SENSOR_NAME "bma4xy_acc"
 
@@ -35,19 +35,12 @@ struct bma4xy_data {
 	struct i2c_client *client;
 	struct acc_hw hw;
 	/* misc */
-	atomic_t trace;
 	atomic_t suspend;
-	atomic_t filter;
 	struct hwmsen_convert cvt;
 	/* data */
 	int irq;
 	struct work_struct irq_work;
-	int reg_sel;
-	int reg_len;
-	struct delayed_work delay_work_sig;
 	atomic_t in_suspend;
-	uint8_t tap_type;
-	uint8_t selftest;
 	uint8_t sigmotion_enable;
 	uint8_t stepdet_enable;
 	uint8_t stepcounter_enable;

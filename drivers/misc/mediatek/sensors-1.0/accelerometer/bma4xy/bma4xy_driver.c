@@ -154,10 +154,6 @@ static void bma4xy_irq_work_func(struct work_struct *work)
 
 	BMA4XY_LOG("int_status_0 = 0x%X, int_status_1 = 0x%X\n", int_status[0], int_status[1]);
 
-	//if (in_suspend_copy && ((int_status[0] & STEP_DET_OUT) == 0x02)) {
-	//	return;
-	//}
-
 	bma4xy_uc_function_handle(int_status[0]);
 }
 
@@ -169,58 +165,32 @@ static irqreturn_t bma4xy_irq_handler(int irq, void *handle)
 
 static int bma4xy_request_irq()
 {
-	int ret;
+	int err;
 	struct device_node *node = NULL;
-	struct pinctrl *pinctrl;
-	struct pinctrl_state *pins_default;
-	struct pinctrl_state *pins_cfg;
 
-	/* gpio setting */
-	pinctrl = devm_pinctrl_get(&bma4xy_data->client->dev);
-	if (!IS_ERR(pinctrl)) {
-		pins_default = pinctrl_lookup_state(pinctrl, "pin_default");
-		if (IS_ERR(pins_default)) {
-			ret = PTR_ERR(pins_default);
-			BMA4XY_ERR("Cannot find step pinctrl default! ret = %d\n", ret);
-			//return ret;
-		}
-
-		pins_cfg = pinctrl_lookup_state(pinctrl, "pin_cfg");
-		if (!IS_ERR(pins_cfg)) {
-			pinctrl_select_state(pinctrl, pins_cfg);
-		} else {
-			ret = PTR_ERR(pins_cfg);
-			BMA4XY_ERR("Cannot find step pinctrl pin_cfg! ret = %d\n", ret);
-			//return ret;
-		}
-
-	} else {
-		ret = PTR_ERR(pinctrl);
-		BMA4XY_ERR("Cannot find step pinctrl! ret = %d\n", ret);
-		//return ret;
-	}
-
-	node = of_find_compatible_node(NULL, NULL, "mediatek,GSE_1-eint");
-	/* eint request */
-	if (node) {
-		pr_debug("irq node is ok!");
-		bma4xy_data->irq = irq_of_parse_and_map(node, 0);
-		pr_debug("bma4xy_data->irq = %d\n", bma4xy_data->irq);
-		if (!bma4xy_data->irq) {
-			BMA4XY_ERR("irq_of_parse_and_map fail!!\n");
-			return -EINVAL;
-		}
-		if (request_irq(bma4xy_data->irq, bma4xy_irq_handler, IRQF_TRIGGER_RISING, "mediatek,GSE_1-eint", NULL)) {
-			BMA4XY_ERR("IRQ LINE NOT AVAILABLE!!\n");
-			return -EINVAL;
-		}
-		enable_irq(bma4xy_data->irq);
-	} else {
-		BMA4XY_ERR("null irq node!!\n");
+	node = of_find_compatible_node(NULL, NULL, "mediatek,gse_1");
+	if (node == NULL) {
+		BMA4XY_ERR("of_find_compatible_node failed!\n");
 		return -EINVAL;
 	}
 
+	BMA4XY_LOG("Found IRQ node!\n");
+
+	bma4xy_data->irq = irq_of_parse_and_map(node, 0);
+	if (!bma4xy_data->irq) {
+		BMA4XY_ERR("irq_of_parse_and_map failed!\n");
+		return -EINVAL;
+	}
+
+	err = request_irq(bma4xy_data->irq, bma4xy_irq_handler, IRQF_TRIGGER_RISING, "mediatek,gse_1", NULL);
+	if (err) {
+		BMA4XY_LOG("request_irq failed: %d\n", err);
+		return err;
+	}
+
 	INIT_WORK(&bma4xy_data->irq_work, bma4xy_irq_work_func);
+
+	BMA4XY_LOG("Request IRQ OK!\n");
 
 	return 0;
 }
@@ -280,7 +250,7 @@ static int bma4xy_init_client()
 }
 
 #ifdef CONFIG_PM_SLEEP
-static int bma4xy_i2c_suspend(struct device *dev)
+static int bma4xy_i2c_suspend(struct device * dev)
 {
 	BMA4XY_FUN();
 
@@ -290,7 +260,7 @@ static int bma4xy_i2c_suspend(struct device *dev)
 	return 0;
 }
 
-static int bma4xy_i2c_resume(struct device *dev)
+static int bma4xy_i2c_resume(struct device * dev)
 {
 	BMA4XY_FUN();
 
@@ -407,7 +377,7 @@ static struct acc_init_info bma4xy_init_info = {
 	.uninit = bma4xy_acc_uninit,
 };
 
-static int bma4xy_i2c_probe(struct i2c_client *client, const struct i2c_device_id *id)
+static int bma4xy_i2c_probe(struct i2c_client * client, const struct i2c_device_id * id)
 {
 	int err = 0;
 	struct acc_control_path control_path = {0};
@@ -444,7 +414,6 @@ static int bma4xy_i2c_probe(struct i2c_client *client, const struct i2c_device_i
 	i2c_set_clientdata(client, bma4xy_data);
 	bma4xy_data->client = client;
 
-	atomic_set(&bma4xy_data->trace, 0);
 	atomic_set(&bma4xy_data->suspend, 0);
 
 	// Set functions required by the Bosch API
@@ -496,7 +465,7 @@ exit_err_clean:
 	return err;
 }
 
-static int bma4xy_i2c_remove(struct i2c_client *client)
+static int bma4xy_i2c_remove(struct i2c_client * client)
 {
 	kfree(bma4xy_data);
 	bma4xy_data = NULL;
@@ -586,15 +555,14 @@ static int bma4xy_step_c_enable_nodata(int en)
 		return -EINVAL;
 	}
 
-	if ((en == 0) && (bma4_obj_i2c_data->sigmotion_enable == 0) &&
-	    (bma4_obj_i2c_data->stepdet_enable == 0) &&
-	    (bma4_obj_i2c_data->acc_pm == 0)) {
+	if ((en == 0) && (bma4xy_data->sigmotion_enable == 0) &&
+	    (bma4xy_data->stepdet_enable == 0)) {
 		err = bma4_set_accel_enable(BMA4_DISABLE, &client_data->device);
 		bma4xy_i2c_delay(10);
 	}
 	if (err)
 		BMA4XY_ERR("set acc_op_mode failed\n\n");
-	bma4_obj_i2c_data->stepcounter_enable = en;
+	bma4xy_data->stepcounter_enable = en;
 	return err;
 }
 
@@ -616,9 +584,8 @@ static int bma4xy_step_c_enable_significant(int en)
 	if (err)
 		BMA4XY_ERR("set acc_op_mode failed\n");
 
-	if ((en == 0) && (bma4_obj_i2c_data->stepcounter_enable == 0) &&
-	    (bma4_obj_i2c_data->stepdet_enable == 0) &&
-	    (bma4_obj_i2c_data->acc_pm == 0)) {
+	if ((en == 0) && (bma4xy_data->stepcounter_enable == 0) &&
+	    (bma4xy_data->stepdet_enable == 0)) {
 		err = bma4_set_accel_enable(BMA4_DISABLE, &client_data->device);
 		bma4xy_i2c_delay(10);
 	}
@@ -627,7 +594,7 @@ static int bma4xy_step_c_enable_significant(int en)
 
 	bma4xy_i2c_delay(10);
 
-	bma4_obj_i2c_data->sigmotion_enable = en;
+	bma4xy_data->sigmotion_enable = en;
 
 	return err;
 
@@ -656,20 +623,19 @@ static int bma4xy_step_c_enable_step_detect(int enable)
 		return -EINVAL;
 	}
 
-	if ((enable == 0) && (bma4_obj_i2c_data->sigmotion_enable == 0) &&
-	    (bma4_obj_i2c_data->stepcounter_enable == 0) &&
-	    (bma4_obj_i2c_data->wakeup_enable == 0) &&
-	    (bma4_obj_i2c_data->tilt_enable == 0) &&
-	    (bma4_obj_i2c_data->wrist_wear == 0) &&
-	    (bma4_obj_i2c_data->single_tap == 0) &&
-	    (bma4_obj_i2c_data->double_tap == 0) &&
-	    (bma4_obj_i2c_data->acc_pm == 0)) {
+	if ((enable == 0) && (bma4xy_data->sigmotion_enable == 0) &&
+	    (bma4xy_data->stepcounter_enable == 0) &&
+	    (bma4xy_data->wakeup_enable == 0) &&
+	    (bma4xy_data->tilt_enable == 0) &&
+	    (bma4xy_data->wrist_wear == 0) &&
+	    (bma4xy_data->single_tap == 0) &&
+	    (bma4xy_data->double_tap == 0)) {
 		err = bma4_set_accel_enable(BMA4_DISABLE, &client_data->device);
 		bma4xy_i2c_delay(10);
 	}
 	if (err)
 		BMA4XY_ERR("set acc_op_mode failed\n");
-	bma4_obj_i2c_data->stepdet_enable = enable;
+	bma4xy_data->stepdet_enable = enable;
 	return err;
 }
 
@@ -814,13 +780,13 @@ static int bma4xy_tilt_enable(int en)
 		if (err)
 			BMA4XY_ERR("bma4_set_advance_power_save failed: %d\n", err);
 
-		bma4xy_i2c_delay(10);
+		bma4xy_i2c_delay_us(10, NULL);
 
 		err = bma4_set_accel_enable(BMA4_ENABLE, &bma4xy_data->device);
 		if (err)
 			BMA4XY_ERR("bma4_set_accel_enable failed: %d\n", err);
 
-		bma4xy_i2c_delay(10);
+		bma4xy_i2c_delay_us(10, NULL);
 	}
 
 	err = bma423_feature_enable(BMA423_WRIST_WEAR, en, &bma4xy_data->device);
@@ -829,29 +795,28 @@ static int bma4xy_tilt_enable(int en)
 		return err;
 	}
 
-	bma4xy_i2c_delay(10);
+	bma4xy_i2c_delay_us(10, NULL);
 
 	if (en == 0 &&
-	    bma4_obj_i2c_data->sigmotion_enable == 0 &&
-	    bma4_obj_i2c_data->stepdet_enable == 0 &&
-	    bma4_obj_i2c_data->stepcounter_enable == 0 &&
-	    bma4_obj_i2c_data->wakeup_enable == 0 &&
-	    bma4_obj_i2c_data->single_tap == 0 &&
-	    bma4_obj_i2c_data->double_tap == 0 &&
-	    bma4_obj_i2c_data->acc_pm == 0) {
+	    bma4xy_data->sigmotion_enable == 0 &&
+	    bma4xy_data->stepdet_enable == 0 &&
+	    bma4xy_data->stepcounter_enable == 0 &&
+	    bma4xy_data->wakeup_enable == 0 &&
+	    bma4xy_data->single_tap == 0 &&
+	    bma4xy_data->double_tap == 0) {
 		err = bma4_set_accel_enable(BMA4_DISABLE, &bma4xy_data->device);
 		if (err)
 			BMA4XY_ERR("bma4_set_accel_enable failed: %d\n", err);
 	}
 
-	bma4xy_i2c_delay(10);
-	bma4_obj_i2c_data->wrist_wear = en;
-	bma4_obj_i2c_data->tilt_enable = en;
+	bma4xy_i2c_delay_us(10, NULL);
+	bma4xy_data->wrist_wear = en;
+	bma4xy_data->tilt_enable = en;
 
 	return 0;
 }
 
-static int bma4xy_get_data_tilt(void)
+static int bma4xy_tilt_get_data(int *value, int *status)
 {
 	return 0;
 }
@@ -871,7 +836,7 @@ static int bma4xy_tilt_probe(void)
 		return err;
 	}
 
-	data_path.get_data = bma4xy_get_data_tilt;
+	data_path.get_data = bma4xy_tilt_get_data;
 	err = tilt_register_data_path(&data_path);
 	if (err) {
 		BMA4XY_ERR("tilt_register_data_path failed: %d\n", err);

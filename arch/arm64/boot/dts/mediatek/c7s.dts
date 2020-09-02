@@ -599,5 +599,9 @@
 	algorithm_name = "LinearCharging";
 };
 
+&gse_1 {
+	compatible = "mediatek,gse_1";
+};
+
 #include <c7s/cust.dtsi>
 #include "cust_mt6739_camera.dtsi"
