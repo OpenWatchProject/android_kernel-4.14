@@ -164,9 +164,9 @@
 	gsensor_intpin_cfg: gsensorpincfg {
 
 	    pins_cmd_dat {
-			pinmux = <PINMUX_GPIO63__FUNC_GPIO63>;
+			pinmux = <PINMUX_GPIO2__FUNC_GPIO2>;
 			slew-rate = <0>;
-			bias-pull-down = <00>;
+			bias-disable;
 		};
 	};
 
@@ -566,7 +566,7 @@
 	};
 	aud_pins_extamp_high: audexamphigh {
 		pins_cmd_dat {
-			pinmux = <PINMUX_GPIO24__FUNC_GPIO24>;
+			pinmux = <PINMUX_GPIO13__FUNC_GPIO13>;
 			slew-rate = <1>;
 			output-high;
 		};
@@ -574,7 +574,7 @@
 
 	aud_pins_extamp_low: audexamplow {
 		pins_cmd_dat {
-			pinmux = <PINMUX_GPIO24__FUNC_GPIO24>;
+			pinmux = <PINMUX_GPIO13__FUNC_GPIO13>;
 			slew-rate = <1>;
 			output-low;
 		};
@@ -601,4 +601,3 @@
 
 #include <c7s/cust.dtsi>
 #include "cust_mt6739_camera.dtsi"
-
