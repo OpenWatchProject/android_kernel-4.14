@@ -20,6 +20,7 @@ obj-$(CONFIG_CUSTOM_KERNEL_SENSOR_FUSION)	+= sensorfusion/
 #obj-$(CONFIG_MTK_KERNEL_GEOFENCE) += geofence/
 obj-$(CONFIG_CUSTOM_KERNEL_BIOMETRIC_SENSOR) += biometric/
 obj-$(CONFIG_CUSTOM_KERNEL_TILT_DETECTOR_SENSOR) += tilt_detector_sensor/
+obj-$(CONFIG_CUSTOM_KERNEL_HEART) += heart_rate/
 obj-$(CONFIG_MTK_HIGH_FREQ_SENSOR) += high_freq_sensor/
 else
 obj-y += dummy.o
