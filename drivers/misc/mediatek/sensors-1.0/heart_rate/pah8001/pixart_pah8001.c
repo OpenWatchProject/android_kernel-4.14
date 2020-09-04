@@ -281,6 +281,7 @@ static void pah8001_ppg(void) {
 			event.word[0] = *(uint32_t *)(pah8001data.ppg_mems_data.HRD_Data);
 			event.word[1] = *(uint32_t *)(pah8001data.ppg_mems_data.HRD_Data + 4);
 			event.word[2] = *(uint32_t *)(pah8001data.ppg_mems_data.HRD_Data + 8);
+			event.word[5] = 0x00; // Report HeartRate Data
 			sensor_input_event(pixart_device.minor, &event);
 		}
 	}
