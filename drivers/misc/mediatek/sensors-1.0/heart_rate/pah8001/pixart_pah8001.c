@@ -348,14 +348,14 @@ static ssize_t pah8001_no_support_show(struct device *dev, struct device_attribu
 	return snprintf(buf, PAGE_SIZE, "not supported");
 }
 
-static DEVICE_ATTR(hrs_active, 0644, pah8001_active_show, pah8001_active_store);
-static DEVICE_ATTR(hrs_batch, 0444, pah8001_no_support_show, NULL);
-static DEVICE_ATTR(hrs_flush, 0444, pah8001_no_support_show, NULL);
+static DEVICE_ATTR(hrsactive, 0644, pah8001_active_show, pah8001_active_store);
+static DEVICE_ATTR(hrsbatch, 0444, pah8001_no_support_show, NULL);
+static DEVICE_ATTR(hrsflush, 0444, pah8001_no_support_show, NULL);
 
 static struct attribute *pah8001_attr_list[] = {
-	&dev_attr_hrs_active.attr,
-	&dev_attr_hrs_batch.attr,
-	&dev_attr_hrs_flush.attr,
+	&dev_attr_hrsactive.attr,
+	&dev_attr_hrsbatch.attr,
+	&dev_attr_hrsflush.attr,
 	NULL,
 };
 
