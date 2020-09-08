@@ -102,6 +102,19 @@
 		is_batch_supported = <0>;
 	};
 
+	hrsensor@33 {
+		compatible = "mediatek,pah8001";
+		pinctrl-names = "default", "ldo_pin0", "ldo_pin1", "rst_pin0", "rst_pin1", "pdn_pin0", "pdn_pin1", "eint_pin";
+		pinctrl-0 = <&hrsensor_default>;
+		pinctrl-1 = <&hrsensor_pin_ldo0>;
+		pinctrl-2 = <&hrsensor_pin_ldo1>;
+		pinctrl-3 = <&hrsensor_pin_rst0>;
+		pinctrl-4 = <&hrsensor_pin_rst1>;
+		pinctrl-5 = <&hrsensor_pin_pdn0>;
+		pinctrl-6 = <&hrsensor_pin_pdn1>;
+		pinctrl-7 = <&hrsensor_pin_eint>;
+	};
+
 	msensor@0c {
 		i2c_num = <1>;
 		i2c_addr = <0x0d 0 0 0>;
@@ -171,6 +184,76 @@
 	};
 
 	gsensor_intpin_default: gsensordefaultcfg {
+
+	};
+};
+
+&pio {
+
+	hrsensor_pin_ldo0: hrs_ldo_pin0 {
+
+	    pins_cmd_dat {
+			pinmux = <PINMUX_GPIO11__FUNC_GPIO11>;
+			slew-rate = <1>;
+			output-low;
+		};
+	};
+
+	hrsensor_pin_ldo1: hrs_ldo_pin1 {
+
+	    pins_cmd_dat {
+			pinmux = <PINMUX_GPIO11__FUNC_GPIO11>;
+			slew-rate = <1>;
+			output-high;
+		};
+	};
+
+	hrsensor_pin_rst0: hrs_rst_pin0 {
+
+	    pins_cmd_dat {
+			pinmux = <PINMUX_GPIO23__FUNC_GPIO23>;
+			slew-rate = <1>;
+			output-low;
+		};
+	};
+
+	hrsensor_pin_rst1: hrs_rst_pin1 {
+
+	    pins_cmd_dat {
+			pinmux = <PINMUX_GPIO23__FUNC_GPIO23>;
+			slew-rate = <1>;
+			output-high;
+		};
+	};
+
+	hrsensor_pin_pdn0: hrs_pdn_pin0 {
+
+	    pins_cmd_dat {
+			pinmux = <PINMUX_GPIO22__FUNC_GPIO22>;
+			slew-rate = <1>;
+			output-low;
+		};
+	};
+
+	hrsensor_pin_pdn1: hrs_pdn_pin1 {
+
+	    pins_cmd_dat {
+			pinmux = <PINMUX_GPIO22__FUNC_GPIO22>;
+			slew-rate = <1>;
+			output-high;
+		};
+	};
+
+	hrsensor_pin_eint: hrs_eint_pin {
+
+	    pins_cmd_dat {
+			pinmux = <PINMUX_GPIO32__FUNC_GPIO32>;
+			slew-rate = <0>;
+			bias-pull-up = <00>;
+		};
+	};
+
+	hrsensor_default: hrs_default {
 
 	};
 };
