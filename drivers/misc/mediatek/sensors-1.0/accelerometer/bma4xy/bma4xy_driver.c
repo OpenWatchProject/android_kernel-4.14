@@ -250,7 +250,7 @@ static int bma4xy_init_client()
 }
 
 #ifdef CONFIG_PM_SLEEP
-static int bma4xy_i2c_suspend(struct device * dev)
+static int bma4xy_i2c_suspend(struct device *dev)
 {
 	BMA4XY_FUN();
 
@@ -260,7 +260,7 @@ static int bma4xy_i2c_suspend(struct device * dev)
 	return 0;
 }
 
-static int bma4xy_i2c_resume(struct device * dev)
+static int bma4xy_i2c_resume(struct device *dev)
 {
 	BMA4XY_FUN();
 
@@ -377,7 +377,7 @@ static struct acc_init_info bma4xy_init_info = {
 	.uninit = bma4xy_acc_uninit,
 };
 
-static int bma4xy_i2c_probe(struct i2c_client * client, const struct i2c_device_id * id)
+static int bma4xy_i2c_probe(struct i2c_client *client, const struct i2c_device_id *id)
 {
 	int err = 0;
 	struct acc_control_path control_path = {0};
@@ -465,7 +465,7 @@ exit_err_clean:
 	return err;
 }
 
-static int bma4xy_i2c_remove(struct i2c_client * client)
+static int bma4xy_i2c_remove(struct i2c_client *client)
 {
 	kfree(bma4xy_data);
 	bma4xy_data = NULL;
