@@ -3,11 +3,13 @@
 #include <linux/sched.h>
 #include <linux/wait.h>
 #include <linux/jiffies.h>
+#include <linux/module.h>
 #include <linux/delay.h>
 #include <linux/gpio.h>
 #include <linux/miscdevice.h>
 #include <linux/of.h>
 #include <linux/pinctrl/consumer.h>
+#include "pah8001_driver.h"
 #include "pah8001_led_ctrl.h"
 
 // This is temporary
@@ -18,14 +20,16 @@
 
 static struct of_device_id pah8001_match_table[] = {
 	{.compatible = "mediatek,pah8001"},
-	{}
+	{.compatible = "mediatek,hrsensor"},
+	{},
 };
+MODULE_DEVICE_TABLE(of, pah8001_match_table);
 
-#define PAH_TAG "[PAH8001] "
-#define PAH_ERR(fmt, args...) pr_err(PAH_TAG "%s, %d: " fmt, __func__, __LINE__, ##args)
-#define PAH_DBG(fmt, args...) pr_err(PAH_TAG "%s, %d: " fmt, __func__, __LINE__, ##args)
-#define PAH_LOG(fmt, args...) pr_err(PAH_TAG "%s, %d: " fmt, __func__, __LINE__, ##args)
-#define PAH_FUN() pr_err(PAH_TAG "%s, %d\n", __func__, __LINE__)
+#define PAH_TAG "[pah8001] "
+#define PAH_ERR(fmt, args...) printk(PAH_TAG "%s, %d: " fmt, __func__, __LINE__, ##args)
+#define PAH_DBG(fmt, args...) printk(PAH_TAG "%s, %d: " fmt, __func__, __LINE__, ##args)
+#define PAH_LOG(fmt, args...) printk(PAH_TAG "%s, %d: " fmt, __func__, __LINE__, ##args)
+#define PAH_FUN() printk(PAH_TAG "%s, %d\n", __func__, __LINE__)
 
 static pah8001_data_t pah8001_data = {0};
 static struct pinctrl *pctrl;
@@ -37,7 +41,7 @@ static struct pinctrl_state *pdn_pin_state0;
 static struct pinctrl_state *pdn_pin_state1;
 static struct sensor_attr_t pah8001_attr;
 
-static int pah8001_i2c_write(uint8_t reg, const uint8_t *data, int len)
+static int pah8001_i2c_write(uint8_t reg, uint8_t *data, int len)
 {
 	int ret = 0;
 	struct i2c_msg msg[] = {
@@ -51,12 +55,12 @@ static int pah8001_i2c_write(uint8_t reg, const uint8_t *data, int len)
 			.addr = pah8001_data.client->addr,
 			.flags = I2C_M_NOSTART,
 			.len = len,
-			.buf = &data,
+			.buf = data,
 		}
 	};
 
-	ret = i2c_transfer(pah8001_data.client, msg, sizeof(msg));
-	if (ret != sizeof(msg)) {
+	ret = i2c_transfer(pah8001_data.client->adapter, msg, 2);
+	if (ret != 2) {
 		PAH_ERR("i2c_transfer failed: %d\n", ret);
 		if (ret >= 0) {
 			ret = -EIO;
@@ -82,12 +86,12 @@ static int pah8001_i2c_read(uint8_t reg, uint8_t *data, int len)
 			.addr = pah8001_data.client->addr,
 			.flags = I2C_M_RD,
 			.len = len,
-			.buf = &data,
+			.buf = data,
 		}
 	};
 
-	ret = i2c_transfer(pah8001_data.client, msg, sizeof(msg));
-	if (ret != sizeof(msg)) {
+	ret = i2c_transfer(pah8001_data.client->adapter, msg, 2);
+	if (ret != 2) {
 		PAH_ERR("i2c_transfer failed: %d\n", ret);
 		if (ret >= 0) {
 			ret = -EIO;
@@ -132,13 +136,13 @@ static int pah8001_power_down(uint8_t power_down)
 	pah8001_write_reg(0x7F, 0x00); // Switch bank
 	if (power_down) {
 		pah8001_write_reg(0x06, 0x0A);
-		ret = pinctrl_select_state(pctrl, pdn_pin_state1);
+		err = pinctrl_select_state(pctrl, pdn_pin_state1);
 	} else {
 		pah8001_write_reg(0x06, 0x02);
-		ret = pinctrl_select_state(pctrl, pdn_pin_state0);
+		err = pinctrl_select_state(pctrl, pdn_pin_state0);
 		pah8001_data.start_jiffies = get_jiffies_64();
 	}
-	if (ret)
+	if (err)
 		PAH_ERR("pinctrl_select_state failed: %d\n", err);
 
 	return err;
@@ -198,7 +202,7 @@ static int pah8001_init_ppg_reg(void)
 static void pah8001_read_ppg(void)
 {
 	static uint8_t frame_count = 0;
-	static ppg_mems_data_t ppg_mems_data = {0};
+	static ppg_mems_data_t ppg_mems_data;
 	uint64_t end_jiffies = 0;
 	uint8_t touch_flag = 0;
 	struct sensor_event event;
@@ -208,6 +212,7 @@ static void pah8001_read_ppg(void)
 	pah8001_led_ctrl(touch_flag & 0x80);
 
 	if (touch_flag & 0x80) {
+		memset(&ppg_mems_data, 0, sizeof(ppg_mems_data));
 		pah8001_write_reg(0x7F, 0x01); // Switch bank
 		pah8001_read_reg(0x68, &ppg_mems_data.HR_Data[0]); // Get data status
 		ppg_mems_data.HR_Data[0] &= 0x0F; // We're only interested in the lower 4 bits
@@ -225,7 +230,8 @@ static void pah8001_read_ppg(void)
 			event.flush_action = DATA_ACTION;
 			event.handle = ID_HEART_RATE;
 			memcpy(event.word, ppg_mems_data.HR_Data, sizeof(ppg_mems_data.HR_Data));
-			sensor_input_event(pah8001_attr, &event);
+			event.word[5] = 0x00; // Report HeartRate Data
+			sensor_input_event(pah8001_attr.minor, &event);
 		} else {
 			// Data is not ready
 			msleep(10);
@@ -249,7 +255,7 @@ static int pah8001_set_hrs_enable(uint8_t enable)
 		pah8001_data.run_ppg = 1;
 		schedule_work(&pah8001_data.work);
 	} else {
-		pah8001_data.run_ppg = 0 ;
+		pah8001_data.run_ppg = 0;
 	}
 
 	return 0;
@@ -257,12 +263,24 @@ static int pah8001_set_hrs_enable(uint8_t enable)
 
 static int pah8001_check_chip_id(void)
 {
-	uint16_t id;
+	int err = 0;
+	uint8_t id[2];
 
-	pah8001_write_reg(0x7F, 0x00); // Switch bank
-	pah8001_i2c_read(0x00, &id, 2); // Read the two ID registers
+	err = pah8001_write_reg(0x7F, 0x00); // Switch bank
+	if (err) {
+		PAH_ERR("Failed to write switch bank command: %d\n", err);
+		return -1;
+	}
 
-	if ((id & 0xFFF0) != 0x30D0) {
+	err = pah8001_i2c_read(0x00, id, 2); // Read ID registers
+	if (err) {
+		PAH_ERR("pah8001_i2c_read failed:: %d\n", err);
+		return -1;
+	}
+
+	PAH_DBG("Returned chip ID1: 0x%02X, ID2: 0x%02X\n", id[0], id[1]);
+
+	if (id[0] != 0x30 || (id[1] & 0xF0) != 0xD0) {
 		return -1;
 	}
 
@@ -272,23 +290,25 @@ static int pah8001_check_chip_id(void)
 static ssize_t pah8001_active_store(struct device *dev, struct device_attribute *attr, const char *buf, size_t count)
 {
 	if (count > 0)
-		pah8001_set_hrs_enable(count[0] != 0 && count[0] != '0');
+		pah8001_set_hrs_enable(buf[0] != 0 && buf[0] != '0');
 
 	return count;
 }
 
-static ssize_t pah8001_active_show(struct device *dev, struct device_attribute *attr, const char *buf)
+static ssize_t pah8001_active_show(struct device *dev, struct device_attribute *attr, char *buf)
 {
 	return scnprintf(buf, PAGE_SIZE, "%d", pah8001_data.run_ppg);
 }
 
 static DEVICE_ATTR(hrsactive, 0644, pah8001_active_show, pah8001_active_store);
 
+static struct attribute *pah8001_attr_list[] = {
+	&dev_attr_hrsactive.attr,
+	NULL,
+};
+
 static struct attribute_group pah8001_attribute_group = {
-	.attrs = {
-		&dev_attr_hrsactive.attr,
-		NULL,
-	},
+	.attrs = pah8001_attr_list,
 };
 
 static ssize_t pah8001_read(struct file *filp, char *buf, size_t count, loff_t *pos)
@@ -301,15 +321,17 @@ static unsigned int pah8001_poll(struct file *filp, poll_table *ptable)
 	return sensor_event_poll(pah8001_attr.minor, filp, ptable);
 }
 
+static struct file_operations pah8001_fops = {
+	.owner = THIS_MODULE,
+	.open = nonseekable_open,
+	.read = pah8001_read,
+	.poll = pah8001_poll,
+};
+
 static struct sensor_attr_t pah8001_attr = {
 	.minor = ID_HEART_RATE,
 	.name = DEV_HEART_RATE,
-	.fops = {
-		.owner = THIS_MODULE,
-		.open = nonseekable_open,
-		.read = pah8001_read,
-		.poll = pah8001_poll,
-	},
+	.fops = &pah8001_fops,
 };
 
 static void pah8001_reset(void)
@@ -333,9 +355,11 @@ static int pah8001_i2c_probe(struct i2c_client *client, const struct i2c_device_
 
 	PAH_FUN();
 
+	PAH_DBG("started...\n");
+
 	if (client->addr != PIXART_I2C_ADDRESS) {
 		PAH_DBG("Changing I2C address from 0x%02X to 0x%02X\n", client->addr, PIXART_I2C_ADDRESS);
-		client->addr = PIXART_I2C_ADDRESS
+		client->addr = PIXART_I2C_ADDRESS;
 	}
 
 	pah8001_data.client = client;
@@ -424,12 +448,16 @@ static int pah8001_i2c_probe(struct i2c_client *client, const struct i2c_device_
 	INIT_WORK(&pah8001_data.work, pah8001_work_func);
 	pah8001_data.run_ppg = 0;
 
+	PAH_DBG("finished!\n");
+
 	return err;
 
 exit_err:
 	pah8001_enable_regulator(0);
-	pinctrl_select_state(pctrl, rst_pin0);
-	pinctrl_select_state(pctrl, pdn_pin0);
+	pinctrl_select_state(pctrl, rst_pin_state0);
+	pinctrl_select_state(pctrl, pdn_pin_state0);
+
+	PAH_DBG("finished with error!\n");
 
 	return err;
 }
@@ -457,9 +485,13 @@ static int __init pah8001_init(void)
 
 	PAH_FUN();
 
+	PAH_DBG("started!\n");
+
 	err = i2c_add_driver(&pah8001_i2c_driver);
 	if (err)
 		PAH_ERR("i2c_add_driver failed: %d\n", err);
+
+	PAH_DBG("finished!\n");
 
 	return err;
 }

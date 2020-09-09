@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<!--dct_version="2.5" buid_sn="161102" dws_modification_time="09.01.2020.19:56:12"-->
+<!--dct_version="2.5" buid_sn="161102" dws_modification_time="09.09.2020.01:11:32"-->
 <dct_cfg>
     <general chip="MT6739">
         <proj>MT6739</proj>
@@ -2368,7 +2368,7 @@
             <device7>
                 <varName>GSENSOR</varName>
                 <channel>I2C_CHANNEL_1</channel>
-                <address>0x4D</address>
+                <address>0x18</address>
             </device7>
             <device8>
                 <varName>ALSPS</varName>
@@ -2405,6 +2405,11 @@
                 <channel>I2C_CHANNEL_2</channel>
                 <address>0x37</address>
             </device14>
+            <device15>
+                <varName>HRSENSOR</varName>
+                <channel>I2C_CHANNEL_1</channel>
+                <address>0x33</address>
+            </device15>
         </module>
         <module name="md1_eint">
             <count>3</count>

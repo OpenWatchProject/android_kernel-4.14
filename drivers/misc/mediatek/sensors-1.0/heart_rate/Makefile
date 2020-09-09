@@ -1,1 +1,1 @@
-obj-$(CONFIG_MTK_PAH8001) += pah8001/
+obj-y += pah8001/
