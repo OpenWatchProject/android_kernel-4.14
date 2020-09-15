@@ -189,12 +189,6 @@ static unsigned int lcm_compare_id(void)
 
 	id = (buffer[1] << 8) | buffer[2];
 
-#if defined(BUILD_LK)
-	printf("[ST7797] %s, buffer[0] = %x;buffer[1] = %x;buffer[2] = %x;buffer[3] = %x;\n", __func__, buffer[0], buffer[1], buffer[2], buffer[3]);
-#else
-	printk("[ST7797] %s, buffer[0] = %x;buffer[1] = %x;buffer[2] = %x;buffer[3] = %x;\n", __func__, buffer[0], buffer[1], buffer[2], buffer[3]);
-#endif
-
 	return (0x7797 == id) ? 1 : 0;
 }
 
