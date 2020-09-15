@@ -46,9 +46,9 @@
 #include "ddp_clkmgr.h"
 #endif
 
-#if defined(CONFIG_MACH_MT6799) || defined(CONFIG_MACH_MT6739)
+//#if defined(CONFIG_MACH_MT6799)
 #include <primary_display.h>
-#endif
+//#endif
 
 #include "ddp_reg.h"
 #include "ddp_path.h"
