@@ -289,7 +289,7 @@ static int ovl_layer_config(enum DISP_MODULE_ENUM module, unsigned int layer,
 			    const struct OVL_CONFIG_STRUCT *const cfg,
 			    const struct disp_rect *const ovl_partial_roi,
 			    const struct disp_rect *const layer_partial_roi,
-			    void *handle)
+			    unsigned char hw_rotation, void *handle)
 {
 	unsigned int value = 0;
 	unsigned int Bpp, input_swap, input_fmt;
@@ -349,9 +349,8 @@ static int ovl_layer_config(enum DISP_MODULE_ENUM module, unsigned int layer,
 		return -1;
 	}
 
-#ifdef CONFIG_MTK_LCM_PHYSICAL_ROTATION_HW
-	rotate = 1;
-#endif
+	if (hw_rotation)
+		rotate = 1;
 
 	if (rotate) {
 		if (is_slt_test())
@@ -990,7 +989,7 @@ static int ovl_config_l(enum DISP_MODULE_ENUM module,
 				ovl_layer_config(module, ovl_cfg->phy_layer,
 						 has_sec_layer, ovl_cfg,
 						 &pConfig->ovl_partial_roi,
-						 &layer_partial_roi, handle);
+						 &layer_partial_roi, pConfig->dispif_config.dsi.hw_rotation, handle);
 			} else {
 				/* this layer will not be displayed */
 				enable = 0;
@@ -1000,7 +999,7 @@ static int ovl_config_l(enum DISP_MODULE_ENUM module,
 						ovl_cfg, NULL);
 			ovl_layer_config(module, ovl_cfg->phy_layer,
 					 has_sec_layer, ovl_cfg, NULL, NULL,
-					 handle);
+					 pConfig->dispif_config.dsi.hw_rotation, handle);
 		}
 
 		if (ovl_cfg->ext_layer != -1) {

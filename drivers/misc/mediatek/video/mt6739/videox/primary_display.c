@@ -5163,10 +5163,9 @@ static int can_bypass_ovl(struct disp_ddp_path_config *data_config,
 	int i;
 	unsigned int w, h;
 
-#ifdef CONFIG_MTK_LCM_PHYSICAL_ROTATION_HW
-	/* RDMA doesn't support rotation */
-	return 0;
-#endif
+	if (data_config->dispif_config.dsi.hw_rotation)
+		/* RDMA doesn't support rotation */
+		return 0;
 
 	if (!disp_helper_get_option(DISP_OPT_BYPASS_OVL))
 		return 0;
@@ -6307,6 +6306,20 @@ int primary_display_get_width(void)
 
 	if (pgc->plcm->params)
 		return pgc->plcm->params->width;
+
+	DISPERR("lcm_params is null!\n");
+	return 0;
+}
+
+unsigned char primary_display_get_hw_rotation(void)
+{
+	if (!pgc->plcm) {
+		DISPERR("lcm handle is null\n");
+		return 0;
+	}
+
+	if (pgc->plcm->params)
+		return pgc->plcm->params->dsi.hw_rotation;
 
 	DISPERR("lcm_params is null!\n");
 	return 0;

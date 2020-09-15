@@ -19,6 +19,7 @@
 #include "lcm_define.h"
 #include "disp_drv_platform.h"
 #include "ddp_manager.h"
+#include "ddp_pwm.h"
 #include "disp_lcm.h"
 
 #if defined(MTK_LCM_DEVICE_TREE_SUPPORT)
@@ -1409,8 +1410,8 @@ int disp_lcm_set_backlight(struct disp_lcm_handle *plcm,
 		if (lcm_drv->set_backlight_cmdq) {
 			lcm_drv->set_backlight_cmdq(handle, level);
 		} else {
-			DISPERR("FATAL ERROR, lcm_drv->set_backlight is null\n");
-			return -1;
+			DISPERR("lcm_drv->set_backlight is null, using disp_bls_set_backlight\n");
+			return disp_bls_set_backlight(level);
 		}
 
 		return 0;

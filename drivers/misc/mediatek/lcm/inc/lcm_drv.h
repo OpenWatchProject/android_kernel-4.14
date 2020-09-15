@@ -742,6 +742,8 @@ struct LCM_DSI_PARAMS {
 	struct dfps_info dfps_params[DFPS_LEVELS];
 	/****DynFPS end****/
 #endif
+
+	unsigned char hw_rotation;
 };
 
 /* ------------------------------------------------------------------------- */
