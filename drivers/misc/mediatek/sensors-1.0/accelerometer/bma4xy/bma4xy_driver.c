@@ -400,9 +400,6 @@ static int bma4xy_i2c_probe(struct i2c_client *client, const struct i2c_device_i
 		goto exit_err_clean;
 	}
 
-	// TODO: Remove temporary hack (tested on LEM12)
-	bma4xy_data->hw.direction = 1;
-
 	err = hwmsen_get_convert(bma4xy_data->hw.direction, &bma4xy_data->cvt);
 	if (err) {
 		BMA4XY_ERR("Invalid direction: %d\n", bma4xy_data->hw.direction);
@@ -816,16 +813,10 @@ static int bma4xy_tilt_enable(int en)
 	return 0;
 }
 
-static int bma4xy_tilt_get_data(int *value, int *status)
-{
-	return 0;
-}
-
 static int bma4xy_tilt_probe(void)
 {
 	int err = 0;
 	struct tilt_control_path control_path = {0};
-	struct tilt_data_path data_path = {0};
 
 	BMA4XY_FUN();
 
@@ -833,13 +824,6 @@ static int bma4xy_tilt_probe(void)
 	err = tilt_register_control_path(&control_path);
 	if (err) {
 		BMA4XY_ERR("tilt_register_control_path failed: %d\n", err);
-		return err;
-	}
-
-	data_path.get_data = bma4xy_tilt_get_data;
-	err = tilt_register_data_path(&data_path);
-	if (err) {
-		BMA4XY_ERR("tilt_register_data_path failed: %d\n", err);
 		return err;
 	}
 
