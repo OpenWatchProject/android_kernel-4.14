@@ -1410,8 +1410,11 @@ int disp_lcm_set_backlight(struct disp_lcm_handle *plcm,
 		if (lcm_drv->set_backlight_cmdq) {
 			lcm_drv->set_backlight_cmdq(handle, level);
 		} else {
-			DISPERR("lcm_drv->set_backlight is null, using disp_bls_set_backlight\n");
-			return disp_bls_set_backlight(level);
+			//DISPERR("lcm_drv->set_backlight is null, using disp_bls_set_backlight\n");
+			return disp_bls_set_backlight(((((1 <<
+								   10) // MT_LED_INTERNAL_LEVEL_BIT_CNT)
+								  - 1) * level +
+								 127) / 255));
 		}
 
 		return 0;
