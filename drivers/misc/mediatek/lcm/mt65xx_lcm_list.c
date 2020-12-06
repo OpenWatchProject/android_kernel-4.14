@@ -1288,6 +1288,10 @@ struct LCM_DRIVER *lcm_driver_list[] = {
 #if defined(RM67162_400X400_DSI_CMD_OLED_HEHUI)
 	&rm67162_400x400_dsi_cmd_oled_hehui_lcm_drv,
 #endif
+
+#if defined(ST7796SV_320X360_DSI_CMD)
+	&st7796sv_320x360_dsi_cmd_lcm_drv,
+#endif
 };
 
 unsigned char lcm_name_list[][128] = {
