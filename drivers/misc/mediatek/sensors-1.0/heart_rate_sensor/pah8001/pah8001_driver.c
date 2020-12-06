@@ -138,8 +138,8 @@ static int pah8001_power_down(uint8_t power_down)
 		pah8001_write_reg(0x06, 0x0A);
 		err = pinctrl_select_state(pctrl, pdn_pin_state1);
 	} else {
-		pah8001_write_reg(0x06, 0x02);
 		err = pinctrl_select_state(pctrl, pdn_pin_state0);
+		pah8001_write_reg(0x06, 0x02);
 		pah8001_data.start_jiffies = get_jiffies_64();
 	}
 	if (err)
@@ -161,7 +161,7 @@ static int pah8001_init_ppg_reg(void)
 	pah8001_write_reg(0x06, 0x82); // Reset the chip
 	mdelay(20);
 	pah8001_write_reg(0x09, 0x5A); // Set registers to RW
-	pah8001_write_reg(0x05, 0xBC); // Enter sleep 2 mode
+	pah8001_write_reg(0x05, 0xBC); // Enter sleep 2 mode // 0x99?
 	//pah8001_write_reg(0x0D, 0xFA); // Unknown (Added from old code)
 	pah8001_read_reg(0x17, &data);
 	pah8001_write_reg(0x17, data | 0x80);
@@ -207,41 +207,48 @@ static void pah8001_read_ppg(void)
 	uint8_t touch_flag = 0;
 	struct sensor_event event;
 
+	PAH_FUN();
+
+		memset(&ppg_mems_data, 0, sizeof(ppg_mems_data));
+
 	pah8001_write_reg(0x7F, 0x00); // Switch bank
 	pah8001_read_reg(0x59, &touch_flag); // Read touch flag
-	pah8001_led_ctrl(touch_flag & 0x80);
+	pah8001_led_ctrl(touch_flag);
 
-	if (touch_flag & 0x80) {
-		memset(&ppg_mems_data, 0, sizeof(ppg_mems_data));
-		pah8001_write_reg(0x7F, 0x01); // Switch bank
-		pah8001_read_reg(0x68, &ppg_mems_data.HR_Data[0]); // Get data status
-		ppg_mems_data.HR_Data[0] &= 0x0F; // We're only interested in the lower 4 bits
-		if (ppg_mems_data.HR_Data[0] == 1) {
-			pah8001_i2c_read(0x64, &ppg_mems_data.HR_Data[1], 4); // Read HR_Data registers
-			pah8001_i2c_read(0x1A, &ppg_mems_data.HR_Data[5], 3); // Read HR_Data_Algo registers
-			ppg_mems_data.HR_Data[8] = frame_count++;
-			end_jiffies = get_jiffies_64();
-			ppg_mems_data.HR_Data[9] = jiffies_to_msecs(end_jiffies - pah8001_data.start_jiffies);
-			pah8001_data.start_jiffies = end_jiffies;
-			ppg_mems_data.HR_Data[10] = get_led_current_change_flag();
-			ppg_mems_data.HR_Data[11] = touch_flag;
-			ppg_mems_data.HR_Data[12] = ppg_mems_data.HR_Data[6];
+	pah8001_write_reg(0x7F, 0x01); // Switch bank
+	pah8001_read_reg(0x68, &ppg_mems_data.HR_Data[0]); // Get data status
+	ppg_mems_data.HR_Data[0] &= 0x0F; // We're only interested in the lower 4 bits
+	PAH_DBG("HR_Data[0] = %d\n", ppg_mems_data.HR_Data[0]);
 
-			event.flush_action = DATA_ACTION;
-			event.handle = ID_HEART_RATE;
-			memcpy(event.word, ppg_mems_data.HR_Data, sizeof(ppg_mems_data.HR_Data));
-			event.word[5] = 0x00; // Report HeartRate Data
+	if (ppg_mems_data.HR_Data[0] != 0) {
+		PAH_DBG("Data valid\n");
+
+		pah8001_i2c_read(0x64, &ppg_mems_data.HR_Data[1], 4); // Read HR_Data registers
+		pah8001_i2c_read(0x1A, &ppg_mems_data.HR_Data[5], 3); // Read HR_Data_Algo registers
+		ppg_mems_data.HR_Data[8] = frame_count++;
+		end_jiffies = get_jiffies_64();
+		ppg_mems_data.HR_Data[9] = jiffies_to_msecs(end_jiffies - pah8001_data.start_jiffies);
+		pah8001_data.start_jiffies = end_jiffies;
+		ppg_mems_data.HR_Data[10] = get_led_current_change_flag();
+		ppg_mems_data.HR_Data[11] = touch_flag;
+		ppg_mems_data.HR_Data[12] = ppg_mems_data.HR_Data[6];
+
+		event.flush_action = DATA_ACTION;
+		event.handle = ID_HEART_RATE;
+		memcpy(event.word, ppg_mems_data.HR_Data, sizeof(ppg_mems_data.HR_Data));
+		event.word[5] = 0x00; // Report HeartRate Data
+		if (ppg_mems_data.HR_Data[0] == 1)
 			sensor_input_event(pah8001_attr.minor, &event);
-		} else {
-			// Data is not ready
-			msleep(10);
-		}
+	} else {
+		// Data is not ready
+		msleep(10);
 	}
 }
 
 static void pah8001_work_func(struct work_struct *work)
 {
 	pah8001_power_down(0);
+	pah8001_init_ppg_reg();
 
 	while (pah8001_data.run_ppg)
 		pah8001_read_ppg();

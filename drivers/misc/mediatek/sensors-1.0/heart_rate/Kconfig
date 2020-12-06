@@ -1,1 +1,0 @@
-source "drivers/misc/mediatek/sensors-1.0/heart_rate/pah8001/Kconfig"

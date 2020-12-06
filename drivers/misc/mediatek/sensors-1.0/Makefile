@@ -20,7 +20,10 @@ obj-$(CONFIG_CUSTOM_KERNEL_SENSOR_FUSION)	+= sensorfusion/
 #obj-$(CONFIG_MTK_KERNEL_GEOFENCE) += geofence/
 obj-$(CONFIG_CUSTOM_KERNEL_BIOMETRIC_SENSOR) += biometric/
 obj-$(CONFIG_CUSTOM_KERNEL_TILT_DETECTOR_SENSOR) += tilt_detector_sensor/
-obj-y += heart_rate/
+# For some reason the CONFIG_CUSTOM_KERNEL_HEART_RATE_SENSOR flag gets unset. I haven't been able to
+# find the source of the error, so we're just hardcoding it right now.
+#obj-$(CONFIG_CUSTOM_KERNEL_HEART_RATE_SENSOR) += heart_rate_sensor/
+obj-y += heart_rate_sensor/
 obj-$(CONFIG_MTK_HIGH_FREQ_SENSOR) += high_freq_sensor/
 else
 obj-y += dummy.o
