@@ -1269,6 +1269,7 @@ static int fts_ts_probe(struct i2c_client *client,
 {
 	int ret = 0;
 	struct fts_ts_data *ts_data = NULL;
+	int cnt;
 
 	FTS_INFO("Touch Screen(I2C BUS) driver prboe...");
 	if (!i2c_check_functionality(client->adapter, I2C_FUNC_I2C)) {
@@ -1297,7 +1298,10 @@ static int fts_ts_probe(struct i2c_client *client,
 	ts_data->fw_is_running = 0;
 	i2c_set_clientdata(client, ts_data);
 
-	ret = fts_ts_probe_entry(ts_data);
+	cnt = 0;
+	do {
+		ret = fts_ts_probe_entry(ts_data);
+	} while (ret && (cnt++ < 1));
 	if (ret) {
 		FTS_ERROR("Touch Screen(I2C BUS) driver probe fail");
 		kfree_safe(ts_data);
