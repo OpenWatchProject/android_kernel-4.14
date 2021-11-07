@@ -1121,9 +1121,8 @@ int _ioctl_get_display_caps(unsigned long arg)
 #endif
 	caps_info.is_support_frame_cfg_ioctl = 1;
 
-#ifdef CONFIG_MTK_LCM_PHYSICAL_ROTATION_HW
-	caps_info.is_output_rotated = 1;
-#endif
+	if (primary_display_get_physical_rotation() != LCM_PHYSICAL_ROTATION_NONE)
+		caps_info.is_output_rotated = 1;
 
 	if (disp_partial_is_support())
 		caps_info.disp_feature |= DISP_FEATURE_PARTIAL;

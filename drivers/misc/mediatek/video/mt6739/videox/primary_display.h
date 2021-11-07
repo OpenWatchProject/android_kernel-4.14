@@ -303,6 +303,7 @@ int primary_display_resume(void);
 int primary_display_ipoh_restore(void);
 int primary_display_get_width(void);
 int primary_display_get_height(void);
+enum LCM_PHYSICAL_ROTATION primary_display_get_physical_rotation(void);
 int primary_display_get_virtual_width(void);
 int primary_display_get_virtual_height(void);
 int primary_display_get_bpp(void);

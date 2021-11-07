@@ -46,9 +46,7 @@
 #include "ddp_clkmgr.h"
 #endif
 
-#if defined(CONFIG_MACH_MT6799)
 #include <primary_display.h>
-#endif
 
 #include "ddp_reg.h"
 #include "ddp_path.h"
@@ -2187,77 +2185,78 @@ static void ddp_color_cal_split_window(enum DISP_MODULE_ENUM module,
 #if defined(CONFIG_MACH_MT6799)
 	int pipeStatus = primary_display_get_pipe_status();
 #endif
+	enum LCM_PHYSICAL_ROTATION physical_rotation = primary_display_get_physical_rotation();
 
 	/* save to global, can be applied on following PQ param updating. */
 	if (g_color0_dst_w == 0 || g_color0_dst_h == 0) {
 		COLOR_DBG
 		 ("g_color0_dst_w/h not init, return default settings\n");
 	} else if (g_split_en) {
-#ifdef LCM_PHYSICAL_ROTATION_180
+		if (physical_rotation == LCM_PHYSICAL_ROTATION_180) {
 #if defined(CONFIG_MACH_MT6799)
-		if (pipeStatus == SINGLE_PIPE) {
-			split_window_x =
-			 ((g_color0_dst_w - g_split_window_x_start) << 16)
-			 | (g_color0_dst_w - g_split_window_x_end);
-		} else if (pipeStatus == DUAL_PIPE) {
-			if (module == DISP_MODULE_COLOR0) {
-				split_window_x = ((g_color0_dst_w -
-					g_split_window_x_start) << 16) |
-					(g_color0_dst_w - g_split_window_x_end);
-			} else if (is_color1_module(module)) {
-				split_window_x = (TRANSLATION((
-				 g_color0_dst_w - g_split_window_x_start),
-				 g_color0_dst_w) << 16) | TRANSLATION((
-				 g_color0_dst_w - g_split_window_x_end),
-				 g_color0_dst_w);
+			if (pipeStatus == SINGLE_PIPE) {
+				split_window_x =
+				 ((g_color0_dst_w - g_split_window_x_start) << 16)
+				 | (g_color0_dst_w - g_split_window_x_end);
+			} else if (pipeStatus == DUAL_PIPE) {
+				if (module == DISP_MODULE_COLOR0) {
+					split_window_x = ((g_color0_dst_w -
+						g_split_window_x_start) << 16) |
+						(g_color0_dst_w - g_split_window_x_end);
+				} else if (is_color1_module(module)) {
+					split_window_x = (TRANSLATION((
+					 g_color0_dst_w - g_split_window_x_start),
+					 g_color0_dst_w) << 16) | TRANSLATION((
+					 g_color0_dst_w - g_split_window_x_end),
+					 g_color0_dst_w);
+				}
 			}
-		}
 
-		COLOR_DBG("pipeStatus[%d]", pipeStatus);
+			COLOR_DBG("pipeStatus[%d]", pipeStatus);
 #else
-		split_window_x =
-		 ((g_color0_dst_w - g_split_window_x_start) << 16) |
-		 (g_color0_dst_w - g_split_window_x_end);
+			split_window_x =
+			 ((g_color0_dst_w - g_split_window_x_start) << 16) |
+			 (g_color0_dst_w - g_split_window_x_end);
 #endif /* #if defined(CONFIG_MACH_MT6799) */
-		split_window_y =
-		 ((g_color0_dst_h - g_split_window_y_start) << 16) |
-		 (g_color0_dst_h - g_split_window_y_end);
-		COLOR_DBG("LCM_PHYSICAL_ROTATION_180");
-#else
-		split_window_y =
-		 (g_split_window_y_end << 16) | g_split_window_y_start;
-#ifdef LCM_PHYSICAL_ROTATION_270
+			split_window_y =
+			 ((g_color0_dst_h - g_split_window_y_start) << 16) |
+			 (g_color0_dst_h - g_split_window_y_end);
+			COLOR_DBG("LCM_PHYSICAL_ROTATION_180");
+		} else {
+			split_window_y =
+			 (g_split_window_y_end << 16) | g_split_window_y_start;
+			if (physical_rotation == LCM_PHYSICAL_ROTATION_270) {
 #if defined(CONFIG_MACH_MT6799)
 #else
-		split_window_x = ((g_split_window_y_end) << 16) |
-				g_split_window_y_start;
-		split_window_y =
-		 ((g_color0_dst_h - g_split_window_x_start) << 16) |
-		 (g_color0_dst_h - g_split_window_x_end);
-		COLOR_DBG("LCM_PHYSICAL_ROTATION_270");
+				split_window_x = ((g_split_window_y_end) << 16) |
+						g_split_window_y_start;
+				split_window_y =
+				 ((g_color0_dst_h - g_split_window_x_start) << 16) |
+				 (g_color0_dst_h - g_split_window_x_end);
+				COLOR_DBG("LCM_PHYSICAL_ROTATION_270");
 #endif /* #if defined(CONFIG_MACH_MT6799) */
-#else
+			} else {
 #if defined(CONFIG_MACH_MT6799)
-		if (pipeStatus == SINGLE_PIPE) {
-			split_window_x = (g_split_window_x_end << 16) |
-					g_split_window_x_start;
-		} else if (pipeStatus == DUAL_PIPE) {
-			if (module == DISP_MODULE_COLOR0) {
-				split_window_x = (g_split_window_x_end << 16) |
+				if (pipeStatus == SINGLE_PIPE) {
+					split_window_x = (g_split_window_x_end << 16) |
 							g_split_window_x_start;
-			} else if (is_color1_module(module)) {
-				split_window_x = (TRANSLATION(
-				 g_split_window_x_end, g_color0_dst_w)
-				 << 16) | TRANSLATION(
-				 g_split_window_x_start, g_color0_dst_w);
+				} else if (pipeStatus == DUAL_PIPE) {
+					if (module == DISP_MODULE_COLOR0) {
+						split_window_x = (g_split_window_x_end << 16) |
+									g_split_window_x_start;
+					} else if (is_color1_module(module)) {
+						split_window_x = (TRANSLATION(
+						 g_split_window_x_end, g_color0_dst_w)
+						 << 16) | TRANSLATION(
+						 g_split_window_x_start, g_color0_dst_w);
+					}
+				}
+#else
+				split_window_x = (g_split_window_x_end << 16) |
+					g_split_window_x_start;
+#endif /* #if defined(CONFIG_MACH_MT6799) */
 			}
 		}
-#else
-		split_window_x = (g_split_window_x_end << 16) |
-			g_split_window_x_start;
-#endif /* #if defined(CONFIG_MACH_MT6799) */
-#endif /* #ifdef LCM_PHYSICAL_ROTATION_270 */
-#endif /* #ifdef LCM_PHYSICAL_ROTATION_180 */
 	}
 
 	*p_split_window_x = split_window_x;

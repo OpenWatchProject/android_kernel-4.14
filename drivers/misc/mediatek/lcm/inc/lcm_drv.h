@@ -582,6 +582,12 @@ struct dfps_info {
 	unsigned int vact_timing_fps_dyn;
 };
 
+enum LCM_PHYSICAL_ROTATION {
+	LCM_PHYSICAL_ROTATION_NONE = 0,
+	LCM_PHYSICAL_ROTATION_90,
+	LCM_PHYSICAL_ROTATION_180,
+	LCM_PHYSICAL_ROTATION_270,
+};
 
 struct LCM_DSI_PARAMS {
 	enum LCM_DSI_MODE_CON mode;
@@ -742,6 +748,8 @@ struct LCM_DSI_PARAMS {
 	struct dfps_info dfps_params[DFPS_LEVELS];
 	/****DynFPS end****/
 #endif
+
+	enum LCM_PHYSICAL_ROTATION physical_rotation;
 };
 
 /* ------------------------------------------------------------------------- */
