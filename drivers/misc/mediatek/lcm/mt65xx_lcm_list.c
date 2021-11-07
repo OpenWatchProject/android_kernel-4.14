@@ -1292,6 +1292,10 @@ struct LCM_DRIVER *lcm_driver_list[] = {
 #if defined(ST7701S_480X640_DSI_VDO)
 	&st7701s_480x640_dsi_vdo_lcm_drv,
 #endif
+
+#if defined(HX8379C_480X640_DSI)
+	&hx8379c_480x640_dsi_lcm_drv,
+#endif
 };
 
 unsigned char lcm_name_list[][128] = {

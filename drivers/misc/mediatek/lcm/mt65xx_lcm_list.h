@@ -344,6 +344,7 @@ extern struct LCM_DRIVER nt51021h_wuxga_vdo_oncell_boe_lcm_drv;
 extern struct LCM_DRIVER rm67162_400x400_dsi_cmd_oled_hehui_lcm_drv;
 extern struct LCM_DRIVER st7796sv_320x360_dsi_cmd_lcm_drv;
 extern struct LCM_DRIVER st7701s_480x640_dsi_vdo_lcm_drv;
+extern struct LCM_DRIVER hx8379c_480x640_dsi_lcm_drv;
 
 #ifdef BUILD_LK
 extern void mdelay(unsigned long msec);
