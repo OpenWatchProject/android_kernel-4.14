@@ -1281,6 +1281,10 @@ struct LCM_DRIVER *lcm_driver_list[] = {
 	&nt51021h_wuxga_vdo_oncell_boe_lcm_drv,
 #endif
 
+#if defined(ST7797_400X400_DSI_VDO)
+	&st7797_400x400_dsi_vdo_lcm_drv,
+#endif
+
 #if defined(RM67162_400X400_DSI_CMD_OLED_HEHUI)
 	&rm67162_400x400_dsi_cmd_oled_hehui_lcm_drv,
 #endif
