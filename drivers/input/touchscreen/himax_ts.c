@@ -3,6 +3,7 @@
 #include <linux/dmi.h>
 #include <linux/firmware.h>
 #include <linux/gpio/consumer.h>
+#include <linux/regulator/consumer.h>
 #include <linux/i2c.h>
 #include <linux/input.h>
 #include <linux/input/mt.h>
@@ -34,8 +35,22 @@ struct himax_ts_data {
 	struct i2c_client *client;
 	struct input_dev *input_dev;
 
+	// Regulators
+	struct regulator *avdd28;
+	struct regulator *vddio;
+
+	// GPIOs
 	struct gpio_desc *gpiod_irq;
 	struct gpio_desc *gpiod_rst;
+
+	// Configuration
+	uint8_t HX_RX_NUM;
+	uint8_t HX_TX_NUM;
+	uint8_t HX_MAX_PT;
+	uint8_t HX_XY_REVERSE;
+	uint16_t HX_X_RES;
+	uint16_t HX_Y_RES;
+	uint8_t HX_INT_IS_EDGE;
 };
 
 /**
@@ -46,22 +61,22 @@ struct himax_ts_data {
  * @buf: raw write data buffer.
  * @len: length of the buffer to write
  */
-int himax_i2c_read(struct i2c_client *client, u8 cmd, u8 *buf, u16 len)
+static int himax_i2c_read(struct i2c_client *client, u8 cmd, u8 *buf, u16 len)
 {
 	struct i2c_msg msgs[2];
 	int ret;
 
 	msgs[0].flags = 0;
 	msgs[0].addr  = client->addr;
-	msgs[0].len   = 1;
 	msgs[0].buf   = &cmd;
+	msgs[0].len   = 1;
 
 	msgs[1].flags = I2C_M_RD;
 	msgs[1].addr  = client->addr;
-	msgs[1].len   = len;
 	msgs[1].buf   = buf;
+	msgs[1].len   = len;
 
-	ret = i2c_transfer(client->adapter, msgs, 2);
+	ret = i2c_transfer(client->adapter, msgs, ARRAY_SIZE(msgs));
 	if (ret >= 0)
 		ret = (ret == ARRAY_SIZE(msgs) ? 0 : -EIO);
 
@@ -79,7 +94,7 @@ int himax_i2c_read(struct i2c_client *client, u8 cmd, u8 *buf, u16 len)
  * @buf: raw data buffer to write.
  * @len: length of the buffer to write
  */
-int himax_i2c_write(struct i2c_client *client, u8 *buf, u16 len)
+static int himax_i2c_write(struct i2c_client *client, u8 *buf, u16 len)
 {
 	struct i2c_msg msg;
 	int ret;
@@ -98,7 +113,7 @@ int himax_i2c_write(struct i2c_client *client, u8 *buf, u16 len)
 	return ret;
 }
 
-int himax_i2c_write_buf(struct i2c_client *client, u8 cmd, u8 *buf, u16 len)
+static int himax_i2c_write_buf(struct i2c_client *client, u8 cmd, u8 *buf, u16 len)
 {
 	u8 *addr_buf;
 	int ret;
@@ -117,12 +132,12 @@ int himax_i2c_write_buf(struct i2c_client *client, u8 cmd, u8 *buf, u16 len)
 	return ret;
 }
 
-int himax_i2c_write_buf_single(struct i2c_client *client, u8 cmd, u8 value)
+static int himax_i2c_write_buf_single(struct i2c_client *client, u8 cmd, u8 value)
 {
 	return himax_i2c_write_buf(client, cmd, &value, sizeof(value));
 }
 
-int himax_i2c_write_buf_cmd(struct i2c_client *client, u8 cmd)
+static int himax_i2c_write_buf_cmd(struct i2c_client *client, u8 cmd)
 {
 	return himax_i2c_write_buf(client, cmd, NULL, 0);
 }
@@ -136,117 +151,7 @@ static int himax_read_event_stack(struct i2c_client *client, u8 *buf, u16 len)
 
 	error = himax_i2c_read(client, HX_CMD_RAE, buf, len);
 	if (error)
-		dev_err(&client->dev, "Failed to read event stack: %d", error);
-
-	return error;
-}
-
-static int himax_read_touch_info(struct himax_ts_data *ts)
-{
-	int error;
-	u8 buf[12];
-
-	buf[0] = 0x14;
-	error = himax_i2c_write_buf(ts->client, 0x8C, buf, 1);
-	if (error)
-		dev_err(&ts->client->dev, "Failed to write 0x8C: %d", error);
-	msleep(20);
-
-	buf[0] = 0x00;
-	buf[1] = 0x70;
-	error = himax_i2c_write_buf(ts->client, 0x8B, buf, 2);
-	if (error)
-		dev_err(&ts->client->dev, "Failed to write 0x8B: %d", error);
-	msleep(20);
-
-	error = himax_i2c_read(ts->client, 0x5A, buf, 12);
-	if (error) {
-		dev_err(&ts->client->dev, "Failed to read 0x5A: %d", error);
-	} else {
-		//ic_data->HX_RX_NUM = buf[0]; // HX_RX_NUM
-		//ic_data->HX_TX_NUM = buf[1]; // HX_TX_NUM
-		//ic_data->HX_MAX_PT = buf[2] >> 4; // HX_MAX_PT
-		//if (buf[4] & 0x04) { // HX_XY_REVERSE
-		//	ic_data->HX_XY_REVERSE = true;
-		//	ic_data->HX_Y_RES = buf[6] << 8 | buf[7]; // HX_Y_RES
-		//	ic_data->HX_X_RES = buf[8] << 8 | buf[9]; // HX_X_RES
-		//} else {
-		//	ic_data->HX_XY_REVERSE = false;
-		//	ic_data->HX_X_RES = buf[6] << 8 | buf[7]; // HX_X_RES
-		//	ic_data->HX_Y_RES = buf[8] << 8 | buf[9]; // HX_Y_RES
-		//}
-	}
-
-	buf[0] = 0x00;
-	error = himax_i2c_write_buf(ts->client, 0x8C, buf, 1);
-	if (error)
-		dev_err(&ts->client->dev, "Failed to write 0x8C: %d", error);
-	msleep(20);
-
-#ifdef HX_TP_PROC_2T2R
-	buf[0] = 0x8C;
-	buf[1] = 0x14;
-	i2c_himax_master_write(client, &buf[0], 2, DEFAULT_RETRY_CNT);
-	msleep(20);
-
-	buf[0] = 0x8B;
-	buf[1] = 0x00;
-	buf[2] = HX_2T2R_Addr;
-	i2c_himax_master_write(client, &buf[0], 3, DEFAULT_RETRY_CNT);
-	msleep(20);
-
-	i2c_himax_read(client, 0x5A, buf, 10, DEFAULT_RETRY_CNT);
-
-	ic_data->HX_RX_NUM_2 = buf[0];
-	ic_data->HX_TX_NUM_2 = buf[1];
-
-	I("%s:Touch Panel Type=%d\n", __func__, buf[2]);
-	if ((buf[2] & 0x02) == HX_2T2R_en_setting) /* 2T2R type panel */
-		Is_2T2R = true;
-	else
-		Is_2T2R = false;
-
-	buf[0] = 0x8C;
-	buf[1] = 0x00;
-	i2c_himax_master_write(client, &buf[0], 2, DEFAULT_RETRY_CNT);
-	msleep(20);
-#endif
-
-	buf[0] = 0x14;
-	error = himax_i2c_write_buf(ts->client, 0x8C, buf, 1);
-	if (error)
-		dev_err(&ts->client->dev, "Failed to write 0x8C: %d", error);
-	msleep(20);
-
-	buf[0] = 0x00;
-	buf[1] = 0x02;
-	error = himax_i2c_write_buf(ts->client, 0x8B, buf, 2);
-	if (error)
-		dev_err(&ts->client->dev, "Failed to write 0x8B: %d", error);
-	msleep(20);
-
-	error = himax_i2c_read(ts->client, 0x5A, buf, 10);
-	if (error) {
-		dev_err(&ts->client->dev, "Failed to read 0x5A: %d", error);
-	} else {
-		if (buf[1] & 0x01) { // HX_INT_IS_EDGE
-			//ic_data->HX_INT_IS_EDGE = true;
-		} else {
-			//ic_data->HX_INT_IS_EDGE = false;
-		}
-	}
-
-	buf[0] = 0x00;
-	error = himax_i2c_write_buf(ts->client, 0x8C, buf, 1);
-	if (error)
-		dev_err(&ts->client->dev, "Failed to write 0x8C: %d", error);
-	msleep(20);
-
-	error = himax_i2c_read(ts->client, HX_VER_FW_CFG, buf, 1);
-	if (error)
-		dev_err(&ts->client->dev, "Failed to read 0x5A: %d", error);
-	else
-		dev_dbg(&ts->client->dev, "HX_VER_FW_CFG = 0x%02X", buf[0]);
+		dev_err(&client->dev, "Failed to read event stack: %d\n", error);
 
 	return error;
 }
@@ -264,7 +169,7 @@ static int himax_request_input_dev(struct himax_ts_data *ts)
 
 	ts->input_dev = devm_input_allocate_device(&ts->client->dev);
 	if (!ts->input_dev) {
-		dev_err(&ts->client->dev, "Failed to allocate input device.");
+		dev_err(&ts->client->dev, "Failed to allocate input device.\n");
 		return -ENOMEM;
 	}
 
@@ -275,7 +180,7 @@ static int himax_request_input_dev(struct himax_ts_data *ts)
 	error = input_register_device(ts->input_dev);
 	if (error) {
 		dev_err(&ts->client->dev,
-		        "Failed to register input device: %d", error);
+		        "Failed to register input device: %d\n", error);
 		return error;
 	}
 
@@ -306,31 +211,193 @@ static int himax_configure_dev(struct himax_ts_data *ts)
 static int himax_get_gpio_config(struct himax_ts_data *ts)
 {
 	int error;
-	struct gpio_desc *gpiod;
 
-	/* Get the interrupt GPIO pin number */
-	gpiod = devm_gpiod_get_optional(&ts->client->dev, "irq", GPIOD_IN);
-	if (IS_ERR(gpiod)) {
-		error = PTR_ERR(gpiod);
+	ts->avdd28 = devm_regulator_get(&ts->client->dev, "AVDD28");
+	if (IS_ERR(ts->avdd28)) {
+		error = PTR_ERR(ts->avdd28);
 		if (error != -EPROBE_DEFER)
-			dev_dbg(&ts->client->dev, "Failed to get irq GPIO: %d\n", error);
+			dev_err(&ts->client->dev, "Failed to get AVDD28 regulator: %d\n", error);
 		return error;
 	}
 
-	ts->gpiod_irq = gpiod;
-
-	/* Get the reset GPIO pin number */
-	gpiod = devm_gpiod_get_optional(&ts->client->dev, "reset", GPIOD_OUT_LOW);
-	if (IS_ERR(gpiod)) {
-		error = PTR_ERR(gpiod);
+	ts->vddio = devm_regulator_get(&ts->client->dev, "VDDIO");
+	if (IS_ERR(ts->vddio)) {
+		error = PTR_ERR(ts->vddio);
 		if (error != -EPROBE_DEFER)
-			dev_dbg(&ts->client->dev, "Failed to get reset GPIO: %d\n", error);
+			dev_err(&ts->client->dev, "Failed to get VDDIO regulator: %d\n", error);
 		return error;
 	}
 
-	ts->gpiod_rst = gpiod;
+	ts->gpiod_irq = devm_gpiod_get_optional(&ts->client->dev, "irq", GPIOD_IN);
+	if (IS_ERR(ts->gpiod_irq)) {
+		error = PTR_ERR(ts->gpiod_irq);
+		if (error != -EPROBE_DEFER)
+			dev_err(&ts->client->dev, "Failed to get irq GPIO: %d\n", error);
+		return error;
+	}
+
+	ts->gpiod_rst = devm_gpiod_get_optional(&ts->client->dev, "reset", GPIOD_OUT_LOW);
+	if (IS_ERR(ts->gpiod_rst)) {
+		error = PTR_ERR(ts->gpiod_rst);
+		if (error != -EPROBE_DEFER)
+			dev_err(&ts->client->dev, "Failed to get reset GPIO: %d\n", error);
+		return error;
+	}
 
 	return 0;
+}
+
+static int himax_enable_regulators(struct himax_ts_data *ts)
+{
+	int error;
+
+	error = regulator_enable(ts->avdd28);
+	if (error) {
+		dev_err(&ts->client->dev, "Failed to enable AVDD28 regulator: %d\n", error);
+		return error;
+	}
+
+	error = regulator_enable(ts->vddio);
+	if (error) {
+		dev_err(&ts->client->dev, "Failed to enable VDDIO regulator: %d\n", error);
+		return error;
+	}
+
+	return 0;
+}
+
+static int himax_reset(struct himax_ts_data *ts)
+{
+	int error;
+
+	if (ts->gpiod_rst) {
+		error = gpiod_direction_output(ts->gpiod_rst, 0);
+		if (error)
+			dev_err(&ts->client->dev, "Failed to clear gpiod_rst: %d\n", error);
+		msleep(20);
+
+		error = gpiod_direction_output(ts->gpiod_rst, 1);
+		if (error)
+			dev_err(&ts->client->dev, "Failed to set gpiod_rst: %d\n", error);
+		msleep(20);
+	} else {
+		dev_err(&ts->client->dev, "Failed to reset, gpiod_rst is NULL!\n");
+	}
+
+	return 0;
+}
+
+static int himax_read_touch_info(struct himax_ts_data *ts)
+{
+	int error;
+	uint8_t buf[12] = {0};
+
+	buf[0] = 0x14;
+	error = himax_i2c_write_buf(ts->client, 0x8C, buf, 1);
+	if (error)
+		dev_err(&ts->client->dev, "Failed to write 0x8C: %d\n", error);
+	msleep(20);
+
+	buf[0] = 0x00;
+	buf[1] = 0x70;
+	error = himax_i2c_write_buf(ts->client, 0x8B, buf, 2);
+	if (error)
+		dev_err(&ts->client->dev, "Failed to write 0x8B: %d\n", error);
+	msleep(20);
+
+	error = himax_i2c_read(ts->client, 0x5A, buf, 12);
+	if (error) {
+		dev_err(&ts->client->dev, "Failed to read 0x5A: %d\n", error);
+	} else {
+		dev_dbg(&ts->client->dev, "HX_RX_NUM: %u\n", buf[0]);
+		dev_dbg(&ts->client->dev, "HX_TX_NUM: %u\n", buf[1]);
+		dev_dbg(&ts->client->dev, "HX_MAX_PT: %u\n", buf[2] >> 4);
+		dev_dbg(&ts->client->dev, "HX_X_RES: %u\n", buf[6] << 8 | buf[7]);
+		dev_dbg(&ts->client->dev, "HX_Y_RES: %u\n", buf[8] << 8 | buf[9]);
+
+		ts->HX_RX_NUM = buf[0];
+		ts->HX_TX_NUM = buf[1];
+		ts->HX_MAX_PT = buf[2] >> 4;
+		ts->HX_XY_REVERSE = (buf[4] & 0x04) == 0x04;
+		ts->HX_X_RES = (((uint16_t) buf[6]) << 8) | buf[7];
+		ts->HX_Y_RES = (((uint16_t) buf[8]) << 9) | buf[7];
+
+		dev_dbg(&ts->client->dev, "HX_RX_NUM: %u\n", ts->HX_RX_NUM);
+		dev_dbg(&ts->client->dev, "HX_TX_NUM: %u\n", ts->HX_TX_NUM);
+		dev_dbg(&ts->client->dev, "HX_MAX_PT: %u\n", ts->HX_MAX_PT);
+		dev_dbg(&ts->client->dev, "HX_XY_REVERSE: %u\n", ts->HX_XY_REVERSE);
+		dev_dbg(&ts->client->dev, "HX_X_RES: %u\n", ts->HX_X_RES);
+		dev_dbg(&ts->client->dev, "HX_Y_RES: %u\n", ts->HX_Y_RES);
+	}
+
+	buf[0] = 0x00;
+	error = himax_i2c_write_buf(ts->client, 0x8C, buf, 1);
+	if (error)
+		dev_err(&ts->client->dev, "Failed to write 0x8C: %d\n", error);
+
+#if 0 //defined(HX_TP_PROC_2T2R)
+	buf[0] = 0x14;
+	error = himax_i2c_write_buf(ts->client, 0x8C, buf, 1);
+	if (error)
+		dev_err(&ts->client->dev, "Failed to write 0x8C: %d\n", error);
+
+	buf[0] = 0x00;
+	buf[1] = HX_2T2R_Addr;
+	error = himax_i2c_write_buf(ts->client, 0x8B, buf, 2);
+	if (error)
+		dev_err(&ts->client->dev, "Failed to write 0x8B: %d\n", error);
+
+	error = himax_i2c_read(ts->client, 0x5A, buf, 10);
+	if (error) {
+		dev_err(&ts->client->dev, "Failed to read 0x5A: %d\n", error);
+	} else {
+		ic_data->HX_RX_NUM_2 = buf[0];
+		ic_data->HX_TX_NUM_2 = buf[1];
+		dev_dbg(&ts->client->dev, "Touch panel type: %d\n", buf[2]);
+		if ((buf[2] & 0x02) == HX_2T2R_en_setting) /* 2T2R type panel */
+			Is_2T2R = true;
+		else
+			Is_2T2R = false;
+	}	
+
+	buf[0] = 0x00;
+	error = himax_i2c_write_buf(ts->client, 0x8C, buf, 1);
+	if (error)
+		dev_err(&ts->client->dev, "Failed to write 0x8C: %d\n", error);
+#endif
+
+	buf[0] = 0x14;
+	error = himax_i2c_write_buf(ts->client, 0x8C, buf, 1);
+	if (error)
+		dev_err(&ts->client->dev, "Failed to write 0x8C: %d\n", error);
+
+	buf[0] = 0x00;
+	buf[1] = 0x02;
+	error = himax_i2c_write_buf(ts->client, 0x8B, buf, 2);
+	if (error)
+		dev_err(&ts->client->dev, "Failed to write 0x8B: %d\n", error);
+
+	error = himax_i2c_read(ts->client, 0x5A, buf, 10);
+	if (error) {
+		dev_err(&ts->client->dev, "Failed to read 0x5A: %d\n", error);
+	} else {
+		ts->HX_INT_IS_EDGE = (buf[1] & 0x01) == 0x01;
+
+		dev_dbg(&ts->client->dev, "HX_INT_IS_EDGE: %d\n", ts->HX_INT_IS_EDGE);
+	}
+
+	buf[0] = 0x00;
+	error = himax_i2c_write_buf(ts->client, 0x8C, buf, 1);
+	if (error)
+		dev_err(&ts->client->dev, "Failed to write 0x8C: %d\n", error);
+
+	error = himax_i2c_read(ts->client, HX_VER_FW_CFG, buf, 1);
+	if (error)
+		dev_err(&ts->client->dev, "Failed to read 0x5A: %d\n", error);
+	else
+		dev_dbg(&ts->client->dev, "HX_VER_FW_CFG: 0x%02X\n", buf[0]);
+
+	return error;
 }
 
 static int himax_ts_probe(struct i2c_client *client,
@@ -355,11 +422,19 @@ static int himax_ts_probe(struct i2c_client *client,
 
 	error = himax_get_gpio_config(ts);
 	if (error)
-		dev_err(&client->dev, "Failed to get GPIO config: %d", error);
+		dev_err(&client->dev, "Failed to get GPIO config: %d\n", error);
+
+	error = himax_enable_regulators(ts);
+	if (error)
+		dev_err(&client->dev, "Failed to enable regulators: %d\n", error);
+
+	error = himax_reset(ts);
+	if (error)
+		dev_err(&client->dev, "Failed to reset the chip: %d\n", error);
 
 	error = himax_read_touch_info(ts);
 	if (error)
-		dev_err(&client->dev, "Failed to read touch info: %d", error);
+		dev_err(&client->dev, "Failed to read touch info: %d\n", error);
 
 	error = himax_configure_dev(ts);
 	if (error)
