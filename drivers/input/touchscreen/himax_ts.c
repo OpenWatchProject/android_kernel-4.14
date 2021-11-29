@@ -117,11 +117,6 @@ static int himax_i2c_write_buf(struct i2c_client *client, uint8_t cmd, uint8_t *
 	return ret;
 }
 
-static int himax_i2c_write_buf_single(struct i2c_client *client, uint8_t cmd, uint8_t value)
-{
-	return himax_i2c_write_buf(client, cmd, &value, sizeof(value));
-}
-
 static int himax_i2c_write_buf_cmd(struct i2c_client *client, uint8_t cmd)
 {
 	return himax_i2c_write_buf(client, cmd, NULL, 0);
