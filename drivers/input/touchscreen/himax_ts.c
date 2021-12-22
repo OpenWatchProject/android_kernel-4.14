@@ -23,10 +23,7 @@
 #define HX_CMD_TSSLPOUT 0x81
 #define HX_CMD_TSSOFF 0x82
 #define HX_CMD_TSSON 0x83
-#define HX_CMD_ROE 0x85
 #define HX_CMD_RAE 0x86
-#define HX_CMD_RLE 0x87
-#define HX_CMD_CLRES 0x88
 #define HX_VER_IC 0xD1
 
 struct himax_ts_data {
@@ -754,7 +751,7 @@ static int __maybe_unused himax_resume(struct device *dev)
 {
 	struct i2c_client *client = to_i2c_client(dev);
 	struct himax_ts_data *ts = i2c_get_clientdata(client);
-	
+
 	himax_common_resume(ts);
 
 	return 0;
