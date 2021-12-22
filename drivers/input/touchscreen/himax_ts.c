@@ -11,6 +11,10 @@
 #include <linux/interrupt.h>
 #include <linux/slab.h>
 #include <linux/of.h>
+#if defined(CONFIG_FB)
+#include <linux/fb.h>
+#include <linux/notifier.h>
+#endif
 
 #define HX_VER_FW_MAJ 0x33
 #define HX_VER_FW_MIN 0x32
@@ -52,6 +56,9 @@ struct himax_ts_data {
 	uint8_t *touch_events;
 	uint16_t touch_events_len;
 	uint16_t touch_events_point_cnt_offset;
+#ifdef CONFIG_FB
+	struct notifier_block fb_notif;
+#endif
 };
 
 static int himax_i2c_read(struct i2c_client *client, uint8_t cmd, uint8_t *buf, uint16_t len)
@@ -223,8 +230,8 @@ static int himax_request_irq(struct himax_ts_data *ts)
 		irq_flags = IRQF_TRIGGER_LOW;
 
 	return devm_request_threaded_irq(&ts->client->dev, ts->client->irq,
-	                                  NULL, himax_irq_handler,
-	                                  irq_flags | IRQF_ONESHOT, ts->client->name, ts);
+	                                 NULL, himax_irq_handler,
+	                                 irq_flags | IRQF_ONESHOT, ts->client->name, ts);
 }
 
 static void himax_free_irq(struct himax_ts_data *ts)
@@ -291,15 +298,15 @@ static int himax_sleep_disable(struct himax_ts_data *ts)
 {
 	int error;
 
-	error = himax_i2c_write_buf_cmd(ts->client, HX_CMD_TSSLPOUT);
-	if (error)
-		dev_err(&ts->client->dev, "Failed to send TSSLPOUT command: %d\n", error);
-	msleep(50);
-
 	error = himax_i2c_write_buf_cmd(ts->client, HX_CMD_TSSON);
 	if (error)
 		dev_err(&ts->client->dev, "Failed to send TSSON command: %d\n", error);
 	msleep(30);
+
+	error = himax_i2c_write_buf_cmd(ts->client, HX_CMD_TSSLPOUT);
+	if (error)
+		dev_err(&ts->client->dev, "Failed to send TSSLPOUT command: %d\n", error);
+	msleep(50);
 
 	return 0;
 }
@@ -329,7 +336,7 @@ static void himax_get_gpio_config(struct himax_ts_data *ts)
 			dev_err(&ts->client->dev, "Failed to get irq GPIO: %d\n", error);
 	}
 
-	ts->gpiod_rst = devm_gpiod_get_optional(&ts->client->dev, "reset", GPIOD_OUT_LOW);
+	ts->gpiod_rst = devm_gpiod_get_optional(&ts->client->dev, "reset", GPIOD_OUT_HIGH);
 	if (IS_ERR(ts->gpiod_rst)) {
 		error = PTR_ERR(ts->gpiod_rst);
 		if (error != -EPROBE_DEFER)
@@ -619,6 +626,51 @@ static int himax_init_touch_event_data(struct himax_ts_data *ts)
 	return 0;
 }
 
+static void himax_common_suspend(struct himax_ts_data *ts)
+{
+	int error;
+
+	himax_free_irq(ts);
+
+	error = himax_sleep_enable(ts);
+	if (error)
+		dev_err(&ts->client->dev, "Failed to enter sleep: %d\n", error);
+}
+
+static void himax_common_resume(struct himax_ts_data *ts)
+{
+	int error;
+
+	error = himax_sleep_disable(ts);
+	if (error)
+		dev_err(&ts->client->dev, "Failed to exit sleep: %d\n", error);
+
+	error = himax_request_irq(ts);
+	if (error)
+		dev_err(&ts->client->dev, "Failed to request IRQ: %d\n", error);
+}
+
+#ifdef CONFIG_FB
+static int fb_notifier_callback(struct notifier_block *nb,
+                                unsigned long action, void *data)
+{
+	struct fb_event *evdata = data;
+	struct himax_ts_data *ts = container_of(nb, struct himax_ts_data, fb_notif);
+	int fb_blank = *((int *) evdata->data);
+
+	if (action != FB_EVENT_BLANK && action != FB_EVENT_CONBLANK)
+		return 0;
+
+	if (fb_blank == FB_BLANK_UNBLANK) {
+		himax_common_resume(ts);
+	} else if (fb_blank != FB_BLANK_UNBLANK) {
+		himax_common_suspend(ts);
+	}
+
+	return 0;
+}
+#endif
+
 static int himax_ts_probe(struct i2c_client *client,
                           const struct i2c_device_id *id)
 {
@@ -677,20 +729,23 @@ static int himax_ts_probe(struct i2c_client *client,
 		return error;
 	}
 
+#ifdef CONFIG_FB
+	ts->fb_notif.notifier_call = fb_notifier_callback;
+	error = fb_register_client(&ts->fb_notif);
+	if (error)
+		dev_err(&client->dev, "Failed to register framebuffer client: %d\n", error);
+#endif
+
 	return 0;
 }
 
+#ifndef CONFIG_FB
 static int __maybe_unused himax_suspend(struct device *dev)
 {
 	struct i2c_client *client = to_i2c_client(dev);
 	struct himax_ts_data *ts = i2c_get_clientdata(client);
-	int error;
 
-	himax_free_irq(ts);
-
-	error = himax_sleep_enable(ts);
-	if (error)
-		dev_err(&ts->client->dev, "Failed to enter sleep: %d\n", error);
+	himax_common_suspend(ts);
 
 	return 0;
 }
@@ -699,20 +754,14 @@ static int __maybe_unused himax_resume(struct device *dev)
 {
 	struct i2c_client *client = to_i2c_client(dev);
 	struct himax_ts_data *ts = i2c_get_clientdata(client);
-	int error;
-
-	error = himax_sleep_disable(ts);
-	if (error)
-		dev_err(&ts->client->dev, "Failed to exit sleep: %d\n", error);
-
-	error = himax_request_irq(ts);
-	if (error)
-		dev_err(&ts->client->dev, "Failed to request IRQ: %d\n", error);
+	
+	himax_common_resume(ts);
 
 	return 0;
 }
 
 static SIMPLE_DEV_PM_OPS(himax_pm_ops, himax_suspend, himax_resume);
+#endif
 
 static const struct i2c_device_id himax_ts_id[] = {
 	{ "hx852x", 0 },
@@ -734,7 +783,9 @@ static struct i2c_driver himax_ts_driver = {
 	.driver = {
 		.name = "himax_ts",
 		.of_match_table = of_match_ptr(himax_of_match),
+#ifndef CONFIG_FB
 		.pm = &himax_pm_ops,
+#endif
 	},
 };
 module_i2c_driver(himax_ts_driver);
