@@ -317,6 +317,7 @@ static void himax_get_gpio_config(struct himax_ts_data *ts)
 		error = PTR_ERR(ts->avdd28);
 		if (error != -EPROBE_DEFER)
 			dev_err(&ts->client->dev, "Failed to get AVDD28 regulator: %d\n", error);
+		ts->avdd28 = NULL;
 	}
 
 	ts->vddio = devm_regulator_get(&ts->client->dev, "VDDIO");
@@ -324,6 +325,7 @@ static void himax_get_gpio_config(struct himax_ts_data *ts)
 		error = PTR_ERR(ts->vddio);
 		if (error != -EPROBE_DEFER)
 			dev_err(&ts->client->dev, "Failed to get VDDIO regulator: %d\n", error);
+		ts->vddio = NULL;
 	}
 
 	ts->gpiod_irq = devm_gpiod_get_optional(&ts->client->dev, "irq", GPIOD_IN);
@@ -331,6 +333,7 @@ static void himax_get_gpio_config(struct himax_ts_data *ts)
 		error = PTR_ERR(ts->gpiod_irq);
 		if (error != -EPROBE_DEFER)
 			dev_err(&ts->client->dev, "Failed to get irq GPIO: %d\n", error);
+		ts->gpiod_irq = NULL;
 	}
 
 	ts->gpiod_rst = devm_gpiod_get_optional(&ts->client->dev, "reset", GPIOD_OUT_HIGH);
@@ -338,6 +341,7 @@ static void himax_get_gpio_config(struct himax_ts_data *ts)
 		error = PTR_ERR(ts->gpiod_rst);
 		if (error != -EPROBE_DEFER)
 			dev_err(&ts->client->dev, "Failed to get reset GPIO: %d\n", error);
+		ts->gpiod_rst = NULL;
 	}
 }
 
